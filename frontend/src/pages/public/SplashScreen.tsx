@@ -43,12 +43,12 @@ export function SplashScreen() {
           className="w-28 h-28 rounded-3xl flex items-center justify-center overflow-hidden"
           style={{ background: 'rgba(255,255,255,0.18)', backdropFilter: 'blur(8px)' }}
         >
-          <img src="/logo.jpg" alt="BloodConnect Logo" className="w-full h-full object-cover animate-heart-beat" />
+          <img src="/logo.jpg" alt="LifeLink Logo" className="w-full h-full object-cover animate-heart-beat" />
         </div>
 
         {/* App name */}
         <div className="text-center">
-          <h1 className="text-4xl font-extrabold text-white tracking-tight">BloodConnect</h1>
+          <h1 className="text-4xl font-extrabold text-white tracking-tight">LifeLink</h1>
           <p className="text-red-200 text-sm mt-2 font-medium tracking-wide">Connecting Donors. Saving Lives.</p>
         </div>
 

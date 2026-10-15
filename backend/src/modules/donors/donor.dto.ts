@@ -20,10 +20,31 @@ export const updateAvailabilitySchema = z.object({
 });
 
 export const searchDonorsSchema = z.object({
-  bloodGroup: z.enum(['A_POS', 'A_NEG', 'B_POS', 'B_NEG', 'AB_POS', 'AB_NEG', 'O_POS', 'O_NEG']).optional(),
+  bloodGroup: z.string().optional().transform(bg => {
+    if (!bg) return undefined;
+    const clean = bg.trim().toUpperCase();
+    if (clean === 'A+') return 'A_POS';
+    if (clean === 'A-') return 'A_NEG';
+    if (clean === 'B+') return 'B_POS';
+    if (clean === 'B-') return 'B_NEG';
+    if (clean === 'AB+') return 'AB_POS';
+    if (clean === 'AB-') return 'AB_NEG';
+    if (clean === 'O+') return 'O_POS';
+    if (clean === 'O-') return 'O_NEG';
+    return clean;
+  }),
   city: z.string().optional(),
   area: z.string().optional(),
-  availability: z.boolean().optional(),
+  availability: z.preprocess(
+    (val) => {
+      if (typeof val === 'string') {
+        if (val.toLowerCase() === 'true' || val === '1') return true;
+        if (val.toLowerCase() === 'false' || val === '0') return false;
+      }
+      return val;
+    },
+    z.boolean().optional()
+  ),
   page: z.coerce.number().min(1).default(1),
   limit: z.coerce.number().min(1).max(50).default(20),
 });

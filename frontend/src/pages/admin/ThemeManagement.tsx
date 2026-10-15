@@ -27,7 +27,7 @@ export function ThemeManagement() {
   };
 
   return (
-    <PageLayout title="Theme Management" subtitle="Personalize the visual identity of BloodConnect">
+    <PageLayout title="Theme Management" subtitle="Personalize the visual identity of LifeLink">
       <div className="grid grid-cols-1 xl:grid-cols-12 gap-8">
         
         {/* LEFT COLUMN - CONTROLS */}
@@ -200,7 +200,7 @@ function LiveAppPreview({ color, secondary, mode }: { color: string, secondary: 
              <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white" style={{ backgroundColor: color }}>
                <Activity size={16} />
              </div>
-             <span className="font-bold text-white ml-3">BloodConnect</span>
+             <span className="font-bold text-white ml-3">LifeLink</span>
            </div>
            
            <div className="p-3 flex flex-col gap-1 flex-1">

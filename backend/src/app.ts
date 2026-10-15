@@ -16,6 +16,8 @@ import reportRoutes from './modules/reports/report.routes';
 import adminRoutes from './modules/admin/admin.routes';
 import analyticsRoutes from './modules/analytics/analytics.routes';
 import auditRoutes from './modules/audit/audit.routes';
+import donationRoutes from './modules/donations/donation.routes';
+import testimonialRoutes from './modules/testimonials/testimonial.routes';
 
 const app = express();
 
@@ -54,6 +56,8 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/analytics', analyticsRoutes);
 app.use('/api/audit-logs', auditRoutes);
+app.use('/api/donations', donationRoutes);
+app.use('/api/testimonials', testimonialRoutes);
 
 // 404
 app.use((_req, res) => {

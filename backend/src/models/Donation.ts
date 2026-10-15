@@ -3,7 +3,7 @@ import mongoose, { Document, Schema, Types } from 'mongoose';
 export interface IDonation extends Document {
   _id: Types.ObjectId;
   donorId: Types.ObjectId;
-  requestId: Types.ObjectId;
+  requestId?: Types.ObjectId;
   donationDate: Date;
   status: 'Scheduled' | 'Donation Completed' | 'Cancelled';
   units: number;
@@ -16,7 +16,7 @@ export interface IDonation extends Document {
 
 const DonationSchema = new Schema<IDonation>({
   donorId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
-  requestId: { type: Schema.Types.ObjectId, ref: 'BloodRequest', required: true },
+  requestId: { type: Schema.Types.ObjectId, ref: 'BloodRequest', required: false },
   donationDate: { type: Date, required: true },
   status: { type: String, enum: ['Scheduled', 'Donation Completed', 'Cancelled'], default: 'Scheduled' },
   units: { type: Number, required: true },

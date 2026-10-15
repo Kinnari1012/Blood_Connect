@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { PageLayout } from '../../components/layout/PageLayout';
-import { Search, Plus, Activity, Edit2, AlertCircle, XCircle, CheckCircle, Loader2 } from 'lucide-react';
+import { Search, Plus, Activity, Edit2, AlertCircle, XCircle, CheckCircle, Loader2, MapPin, Navigation } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Input, Select } from '../../components/ui/Input';
+import { MapModal } from '../../components/common/MapModal';
+import { openGoogleMapsDirections, buildAddressQuery } from '../../utils/mapUtils';
 import toast from 'react-hot-toast';
 
 export function MyRequestsPage() {
   const navigate = useNavigate();
+  const [selectedMapLocation, setSelectedMapLocation] = useState<{ name: string; address: string } | null>(null);
   const [requests, setRequests] = useState<any[]>(() => {
     const saved = localStorage.getItem('my_requests');
     if (saved) return JSON.parse(saved);
@@ -180,7 +183,17 @@ export function MyRequestsPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <p className="font-semibold text-gray-900">{req.hospital}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="font-semibold text-gray-900">{req.hospital}</p>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedMapLocation({ name: req.hospital, address: `${req.hospital}, ${req.location}` })}
+                          className="text-gray-400 hover:text-primary transition-colors p-0.5 rounded"
+                          title="View on Map"
+                        >
+                          <MapPin size={13} />
+                        </button>
+                      </div>
                       <p className="text-xs text-gray-500">{req.date} • {req.location}</p>
                     </td>
                     <td className="px-6 py-4">
@@ -197,6 +210,14 @@ export function MyRequestsPage() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       <div className="flex items-center justify-end gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openGoogleMapsDirections(buildAddressQuery(req.hospital, req.location))}
+                          className="w-8 h-8 rounded-lg bg-red-50 text-primary flex items-center justify-center hover:bg-red-100 transition-colors"
+                          title="Open Turn-by-Turn GPS in Google Maps"
+                        >
+                          <Navigation size={14} />
+                        </button>
                         {(req.status === 'Pending' || req.status === 'Draft') && (
                           <button onClick={() => startEdit(req)} className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center hover:bg-blue-100 transition-colors" title="Edit Request">
                             <Edit2 size={14} />
@@ -221,6 +242,14 @@ export function MyRequestsPage() {
           )}
         </div>
       </div>
+
+      <MapModal
+        isOpen={!!selectedMapLocation}
+        onClose={() => setSelectedMapLocation(null)}
+        title="Hospital Location & Directions"
+        name={selectedMapLocation?.name}
+        address={selectedMapLocation?.address || ''}
+      />
     </PageLayout>
   );
 }

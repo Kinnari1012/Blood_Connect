@@ -37,7 +37,10 @@ export class DonorService {
   }
 
   static async getMyProfile(userId: string) {
-    const profile = await DonorProfile.findOne({ userId }).populate('userId', 'fullName email mobile language');
+    const profile = await DonorProfile.findOne({ userId }).populate(
+      'userId',
+      'firstName lastName email phone'
+    );
     if (!profile) throw new AppError('Donor profile not found', 404, 'NOT_FOUND');
     return profile;
   }
@@ -55,11 +58,25 @@ export class DonorService {
   }
 
   static async updateAvailability(userId: string, availability: boolean) {
-    return DonorProfile.findOneAndUpdate({ userId }, { availability }, { new: true, select: 'availability updatedAt' });
+    const updated = await DonorProfile.findOneAndUpdate(
+      { userId },
+      { availability },
+      { new: true, select: 'availability updatedAt' }
+    );
+    await User.updateOne(
+      { _id: userId },
+      { availability: availability ? 'AVAILABLE' : 'UNAVAILABLE' }
+    );
+    return updated;
   }
 
   static async searchDonors(query: {
-    bloodGroup?: string; city?: string; area?: string; availability?: boolean; page: number; limit: number;
+    bloodGroup?: string;
+    city?: string;
+    area?: string;
+    availability?: boolean;
+    page: number;
+    limit: number;
   }) {
     const filter: any = {};
     if (query.bloodGroup) filter.bloodGroup = query.bloodGroup;
@@ -70,26 +87,67 @@ export class DonorService {
     const skip = (query.page - 1) * query.limit;
     const [donors, total] = await Promise.all([
       DonorProfile.find(filter)
-        .populate({ path: 'userId', match: { status: 'ACTIVE', deletedAt: null }, select: 'id fullName' })
+        .populate({
+          path: 'userId',
+          match: { status: 'ACTIVE', deletedAt: null },
+          select: 'id firstName lastName phone email',
+        })
         .skip(skip)
         .limit(query.limit)
         .sort({ availability: -1, totalDonations: -1 })
-        .select('-latitude -longitude -pincode -state') // hide exact location
+        .select('-latitude -longitude -pincode -state')
         .lean(),
       DonorProfile.countDocuments(filter),
     ]);
 
-    // Filter out donors whose user didn't match (inactive/deleted)
-    const filtered = donors.filter((d: any) => d.userId != null);
-    return { donors: filtered, total };
+    // Filter out donors whose user didn't match (inactive/deleted) and format user field
+    const formatted = donors
+      .filter((d: any) => d.userId != null)
+      .map((d: any) => {
+        const u = d.userId;
+        return {
+          ...d,
+          id: d._id.toString(),
+          user: {
+            id: u._id?.toString() || u.id,
+            firstName: u.firstName,
+            lastName: u.lastName,
+            fullName: `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Verified Donor',
+            phone: u.phone,
+            email: u.email,
+          },
+        };
+      });
+
+    return { donors: formatted, total };
   }
 
   static async getPublicProfile(donorId: string) {
     const profile = await DonorProfile.findById(donorId)
-      .populate({ path: 'userId', match: { status: 'ACTIVE', deletedAt: null }, select: 'id fullName' })
+      .populate({
+        path: 'userId',
+        match: { status: 'ACTIVE', deletedAt: null },
+        select: 'id firstName lastName phone email',
+      })
       .select('-latitude -longitude -pincode -state')
       .lean();
-    if (!profile || !(profile as any).userId) throw new AppError('Donor not found', 404, 'NOT_FOUND');
-    return profile;
+
+    if (!profile || !(profile as any).userId) {
+      throw new AppError('Donor not found', 404, 'NOT_FOUND');
+    }
+
+    const u = (profile as any).userId;
+    return {
+      ...profile,
+      id: profile._id.toString(),
+      user: {
+        id: u._id?.toString() || u.id,
+        firstName: u.firstName,
+        lastName: u.lastName,
+        fullName: `${u.firstName || ''} ${u.lastName || ''}`.trim() || 'Verified Donor',
+        phone: u.phone,
+        email: u.email,
+      },
+    };
   }
 }

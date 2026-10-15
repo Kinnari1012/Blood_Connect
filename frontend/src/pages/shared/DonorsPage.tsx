@@ -1,218 +1,191 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { PageLayout } from '../../components/layout/PageLayout';
-import { Edit2, Trash2, Heart, Search, Filter, Download, X } from 'lucide-react';
+import { Heart, Search, Download, CheckCircle, XCircle, Droplet, Phone, Mail, MapPin } from 'lucide-react';
 import { BLOOD_GROUP_DISPLAY } from '../../constants';
 import toast from 'react-hot-toast';
-
-const initialDonors = [
-  { id: 'DNR-1021', name: 'Vikash Mehta', bg: 'O_POS', phone: '+91 98980 11223', location: 'Maninagar, Ahmedabad', lastDonation: 'Aug 12, 2026', eligibility: 'Eligible', status: 'Available' },
-  { id: 'DNR-1022', name: 'Riya Shah', bg: 'A_NEG', phone: '+91 99000 22334', location: 'Adajan, Surat', lastDonation: 'Sep 25, 2026', eligibility: 'Not Eligible (Recent)', status: 'Unavailable' },
-  { id: 'DNR-1023', name: 'Amit Patel', bg: 'B_POS', phone: '+91 91234 56780', location: 'Navrangpura, Ahmedabad', lastDonation: 'Jan 15, 2026', eligibility: 'Eligible', status: 'Available' },
-  { id: 'DNR-1024', name: 'Pooja Desai', bg: 'AB_POS', phone: '+91 98765 43210', location: 'Alkapuri, Vadodara', lastDonation: 'May 20, 2026', eligibility: 'Eligible', status: 'Available' },
-  { id: 'DNR-1025', name: 'Rahul Verma', bg: 'O_NEG', phone: '+91 99887 76655', location: 'Vesu, Surat', lastDonation: 'Oct 01, 2026', eligibility: 'Not Eligible (Recent)', status: 'Unavailable' },
-  { id: 'DNR-1026', name: 'Neha Gupta', bg: 'A_POS', phone: '+91 90123 45678', location: 'Kalawad Road, Rajkot', lastDonation: 'N/A', eligibility: 'Eligible', status: 'Available' },
-  { id: 'DNR-1027', name: 'Karan Joshi', bg: 'B_NEG', phone: '+91 98222 33444', location: 'Bopal, Ahmedabad', lastDonation: 'Jul 10, 2026', eligibility: 'Eligible', status: 'Available' },
-  { id: 'DNR-1028', name: 'Sneha Reddy', bg: 'O_POS', phone: '+91 93444 55666', location: 'Sama, Vadodara', lastDonation: 'N/A', eligibility: 'Eligible', status: 'Available' },
-];
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { adminApi } from '../../services/api';
+import { LoadingSpinner } from '../../components/ui/Alert';
 
 export function DonorsPage() {
-  const [donors, setDonors] = useState(() => {
-    const saved = localStorage.getItem('mock_donors');
-    return saved ? JSON.parse(saved) : initialDonors;
-  });
+  const qc = useQueryClient();
   const [search, setSearch] = useState('');
   const [isExporting, setIsExporting] = useState(false);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [modalMode, setModalMode] = useState<'add'|'edit'>('add');
-  
-  const [formData, setFormData] = useState({ id: '', name: '', bg: 'O_POS', phone: '', location: '', eligibility: 'Eligible', status: 'Available', lastDonation: 'N/A' });
 
-  useEffect(() => {
-    localStorage.setItem('mock_donors', JSON.stringify(donors));
-  }, [donors]);
+  const { data: donorsData, isLoading } = useQuery({
+    queryKey: ['admin', 'donors', search],
+    queryFn: () => adminApi.getDonors({ search }).then(r => r.data),
+  });
 
-  const filtered = donors.filter((d: any) => d.name.toLowerCase().includes(search.toLowerCase()) || d.id.toLowerCase().includes(search.toLowerCase()));
+  const donors = donorsData?.data || [];
+
+  const updateStatus = useMutation({
+    mutationFn: ({ id, status }: { id: string; status: string }) => adminApi.updateUserStatus(id, { status }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'donors'] });
+      toast.success('Donor status updated');
+    },
+    onError: () => toast.error('Failed to update status'),
+  });
 
   const handleExport = () => {
     setIsExporting(true);
     setTimeout(() => {
       setIsExporting(false);
+      const csvContent = 'data:text/csv;charset=utf-8,' + 
+        ['Name,Email,Phone,Blood Group,City,Availability,Status',
+          ...donors.map((d: any) => `"${d.fullName || (d.firstName + ' ' + d.lastName)}","${d.email}","${d.phone || ''}","${d.bloodGroup || ''}","${d.city || ''}","${d.availability ? 'Available' : 'Unavailable'}","${d.status}"`)
+        ].join('\n');
+      const encodedUri = encodeURI(csvContent);
+      const link = document.createElement('a');
+      link.setAttribute('href', encodedUri);
+      link.setAttribute('download', `donors_directory_${new Date().toISOString().slice(0, 10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       toast.success('Donor records exported successfully!');
-    }, 1000);
-  };
-
-  const handleDelete = (id: string) => {
-    if(window.confirm('Are you sure you want to delete this donor?')) {
-      setDonors(donors.filter((d: any) => d.id !== id));
-      toast.success('Donor deleted.');
-    }
-  };
-
-  const openAddModal = () => {
-    setModalMode('add');
-    setFormData({ id: '', name: '', bg: 'O_POS', phone: '', location: '', eligibility: 'Eligible', status: 'Available', lastDonation: 'N/A' });
-    setIsModalOpen(true);
-  };
-
-  const openEditModal = (donor: any) => {
-    setModalMode('edit');
-    setFormData(donor);
-    setIsModalOpen(true);
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formData.name || !formData.phone) {
-      toast.error('Name and Phone are required.');
-      return;
-    }
-    if (modalMode === 'add') {
-      const newDonor = {
-        ...formData,
-        id: `DNR-10${donors.length + 30}`,
-      };
-      setDonors([newDonor, ...donors]);
-      toast.success('Donor created successfully');
-    } else {
-      setDonors(donors.map((d: any) => d.id === formData.id ? { ...d, ...formData } : d));
-      toast.success('Donor updated successfully');
-    }
-    setIsModalOpen(false);
+    }, 500);
   };
 
   return (
-    <PageLayout title="Donor Directory" subtitle="Manage registered blood donors and their eligibility">
+    <PageLayout title="Donor Directory" subtitle="Manage registered blood donors, medical eligibility, and donation availability">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden min-h-[500px] flex flex-col">
         <div className="p-5 border-b border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-           <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2"><Heart size={20} className="text-primary"/> Registered Donors</h2>
-           <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-             <div className="relative flex-1 sm:w-64">
-               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-               <input 
-                 type="text" 
-                 placeholder="Search donors..." 
-                 value={search}
-                 onChange={(e) => setSearch(e.target.value)}
-                 className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-               />
-             </div>
-             <button onClick={handleExport} disabled={isExporting} className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-50 flex items-center gap-2 focus:outline-none disabled:opacity-50 transition-colors">
-               <Download size={16} /> {isExporting ? 'Exporting...' : 'Export'}
-             </button>
-             <button onClick={openAddModal} className="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:opacity-90 focus:outline-none focus:ring-2 focus:ring-primary transition-colors">Add Donor</button>
-           </div>
-        </div>
-        <div className="overflow-x-auto flex-1">
-          <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-gray-50 border-b border-gray-200 text-gray-600">
-              <tr>
-                <th className="px-6 py-4 font-medium">Donor ID</th>
-                <th className="px-6 py-4 font-medium">Name & Blood Group</th>
-                <th className="px-6 py-4 font-medium">Location</th>
-                <th className="px-6 py-4 font-medium">Last Donation</th>
-                <th className="px-6 py-4 font-medium">Eligibility</th>
-                <th className="px-6 py-4 font-medium text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {filtered.map((d: any) => (
-                <tr key={d.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-gray-900">{d.id}</td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded bg-primary/10 text-primary flex items-center justify-center font-bold border border-primary/20">
-                        {BLOOD_GROUP_DISPLAY[d.bg as keyof typeof BLOOD_GROUP_DISPLAY] || d.bg}
-                      </div>
-                      <div>
-                        <p className="font-semibold text-gray-900">{d.name}</p>
-                        <p className="text-xs text-gray-500">{d.phone}</p>
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-gray-600">{d.location}</td>
-                  <td className="px-6 py-4 text-gray-500 text-sm">{d.lastDonation}</td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-col gap-1">
-                      <span className={`text-xs font-semibold ${d.eligibility.includes('Not') ? 'text-red-600' : 'text-green-600'}`}>
-                        {d.eligibility}
-                      </span>
-                      <span className={`text-[10px] uppercase font-bold px-1.5 py-0.5 rounded w-fit ${d.status === 'Available' ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}`}>
-                        {d.status}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button onClick={() => openEditModal(d)} className="text-gray-400 hover:text-primary mx-2 transition-colors focus:outline-none"><Edit2 size={16} /></button>
-                    <button onClick={() => handleDelete(d.id)} className="text-gray-400 hover:text-red-600 mx-2 transition-colors focus:outline-none"><Trash2 size={16} /></button>
-                  </td>
-                </tr>
-              ))}
-              {filtered.length === 0 && (
-                <tr>
-                   <td colSpan={6} className="text-center py-12 text-gray-500">No donors found matching your search.</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {isModalOpen && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm" onClick={() => setIsModalOpen(false)}></div>
-          <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-xl flex flex-col animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
-              <h3 className="text-lg font-bold text-gray-900">{modalMode === 'add' ? 'Add New Donor' : 'Edit Donor'}</h3>
-              <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-600"><X size={20} /></button>
+          <div>
+            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <Heart size={20} className="text-primary"/> Registered Donors
+            </h2>
+            <p className="text-xs text-gray-500 mt-0.5">Showing verified blood donors active in the network</p>
+          </div>
+          
+          <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+            <div className="relative flex-1 sm:w-64">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input 
+                type="text" 
+                placeholder="Search donors by name, email, phone..." 
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              />
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Full Name *</label>
-                  <input required type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Blood Group *</label>
-                  <select value={formData.bg} onChange={e => setFormData({...formData, bg: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1">
-                    {Object.keys(BLOOD_GROUP_DISPLAY).map(key => (
-                      <option key={key} value={key}>{BLOOD_GROUP_DISPLAY[key as keyof typeof BLOOD_GROUP_DISPLAY]}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Phone Number *</label>
-                <input required type="tel" value={formData.phone} onChange={e => setFormData({...formData, phone: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1" />
-              </div>
-              <div>
-                <label className="block text-xs font-semibold text-gray-700 mb-1">Location</label>
-                <input type="text" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Eligibility</label>
-                  <select value={formData.eligibility} onChange={e => setFormData({...formData, eligibility: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1">
-                    <option value="Eligible">Eligible</option>
-                    <option value="Not Eligible (Recent)">Not Eligible (Recent)</option>
-                    <option value="Not Eligible (Health)">Not Eligible (Health)</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Status</label>
-                  <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1">
-                    <option value="Available">Available</option>
-                    <option value="Unavailable">Unavailable</option>
-                  </select>
-                </div>
-              </div>
-              <div className="pt-4 flex justify-end gap-3">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-50">Cancel</button>
-                <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:opacity-90">{modalMode === 'add' ? 'Save Donor' : 'Update Donor'}</button>
-              </div>
-            </form>
+            <button 
+              onClick={handleExport} 
+              disabled={isExporting || donors.length === 0} 
+              className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-semibold rounded-lg hover:bg-gray-50 flex items-center gap-2 focus:outline-none disabled:opacity-50 transition-colors"
+            >
+              <Download size={16} /> {isExporting ? 'Exporting...' : 'Export CSV'}
+            </button>
           </div>
         </div>
-      )}
+
+        {isLoading ? (
+          <LoadingSpinner className="py-20" />
+        ) : (
+          <div className="overflow-x-auto flex-1">
+            <table className="w-full text-left text-sm whitespace-nowrap">
+              <thead className="bg-gray-50 border-b border-gray-200 text-gray-600">
+                <tr>
+                  <th className="px-6 py-4 font-semibold">Donor Details</th>
+                  <th className="px-6 py-4 font-semibold">Blood Group</th>
+                  <th className="px-6 py-4 font-semibold">Contact</th>
+                  <th className="px-6 py-4 font-semibold">Location</th>
+                  <th className="px-6 py-4 font-semibold">Availability</th>
+                  <th className="px-6 py-4 font-semibold">Total Donations</th>
+                  <th className="px-6 py-4 font-semibold">Status</th>
+                  <th className="px-6 py-4 font-semibold text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {donors.map((d: any) => {
+                  const donorName = d.fullName || `${d.firstName || ''} ${d.lastName || ''}`.trim() || 'Anonymous Donor';
+                  const bgDisplay = d.bloodGroup ? (BLOOD_GROUP_DISPLAY[d.bloodGroup as keyof typeof BLOOD_GROUP_DISPLAY] || d.bloodGroup.replace('_POS', '+').replace('_NEG', '-')) : '—';
+                  const isAvailable = d.availability === true || d.availability === 'true';
+
+                  return (
+                    <tr key={d.id || d._id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-full bg-red-50 text-red-600 flex items-center justify-center font-bold text-sm border border-red-100 flex-shrink-0">
+                            {d.firstName?.charAt(0)?.toUpperCase() || 'D'}
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900">{donorName}</p>
+                            <p className="text-xs text-gray-500 flex items-center gap-1"><Mail size={12} /> {d.email}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="inline-flex items-center gap-1 font-extrabold text-sm px-2.5 py-1 rounded-lg bg-red-100 text-red-800 border border-red-200">
+                          <Droplet size={14} className="fill-red-600 text-red-600" />
+                          {bgDisplay}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-gray-700">
+                        <span className="flex items-center gap-1.5 text-xs font-medium">
+                          <Phone size={12} className="text-gray-400" />
+                          {d.phone || 'N/A'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-gray-600">
+                        <span className="flex items-center gap-1 text-xs">
+                          <MapPin size={12} className="text-gray-400" />
+                          {d.city || d.location || 'Not Specified'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold ${
+                          isAvailable ? 'bg-emerald-100 text-emerald-800' : 'bg-gray-100 text-gray-600'
+                        }`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${isAvailable ? 'bg-emerald-500' : 'bg-gray-400'}`} />
+                          {isAvailable ? 'Available' : 'Unavailable'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="font-bold text-gray-900 px-2 py-0.5 rounded bg-gray-100 text-xs">
+                          {d.totalDonations || 0} donations
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-bold uppercase tracking-wider ${
+                          d.status === 'ACTIVE' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                        }`}>
+                          {d.status || 'ACTIVE'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <button
+                          onClick={() => updateStatus.mutate({
+                            id: d.id || d._id,
+                            status: d.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE'
+                          })}
+                          className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-colors focus:outline-none ${
+                            d.status === 'ACTIVE'
+                              ? 'text-red-700 bg-red-50 hover:bg-red-100'
+                              : 'text-green-700 bg-green-50 hover:bg-green-100'
+                          }`}
+                        >
+                          {d.status === 'ACTIVE' ? 'Disable' : 'Enable'}
+                        </button>
+                      </td>
+                    </tr>
+                  );
+                })}
+
+                {donors.length === 0 && (
+                  <tr>
+                    <td colSpan={8} className="text-center py-16 text-gray-500">
+                      <Heart size={36} className="mx-auto text-gray-300 mb-2" />
+                      <p className="font-semibold text-gray-700">No registered donors found</p>
+                      <p className="text-xs text-gray-400 mt-1">Try searching with a different name, blood group, or city.</p>
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </PageLayout>
   );
 }

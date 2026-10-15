@@ -26,6 +26,15 @@ export class RequestController {
     } catch (err) { next(err); }
   }
 
+  static async getMatchingRequests(req: Request, res: Response, next: NextFunction) {
+    try {
+      const { page, limit } = paginationSchema.parse(req.query);
+      const result = await RequestService.getMatchingRequests(req.user!.id, page, limit);
+      const { requests, total } = result;
+      res.json({ success: true, data: requests, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } });
+    } catch (err) { next(err); }
+  }
+
   static async getRequest(req: Request, res: Response, next: NextFunction) {
     try {
       const request = await RequestService.getRequestById(req.params.id as string, req.user!.id);
@@ -81,4 +90,21 @@ export class RequestController {
       res.json({ success: true, message: 'Donor response approved.', data: response });
     } catch (err) { next(err); }
   }
+
+  static async getPublicLiveRadar(req: Request, res: Response, next: NextFunction) {
+    try {
+      const city = req.query.city as string | undefined;
+      const cluster = req.query.cluster as string | undefined;
+      const data = await RequestService.getPublicLiveRadar(city, cluster);
+      res.json({ success: true, data });
+    } catch (err) { next(err); }
+  }
+
+  static async getAllRequests(req: Request, res: Response, next: NextFunction) {
+    try {
+      const result = await RequestService.getAllRequests(req.query);
+      res.json({ success: true, data: result.requests, meta: { total: result.total } });
+    } catch (err) { next(err); }
+  }
 }
+

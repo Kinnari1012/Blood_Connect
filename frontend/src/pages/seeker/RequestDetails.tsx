@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { MapPin, Calendar, Clock, Users, CheckCircle, XCircle, ShieldCheck } from 'lucide-react';
+import { MapPin, Calendar, Clock, Users, CheckCircle, XCircle, ShieldCheck, Navigation, ExternalLink, Maximize2 } from 'lucide-react';
 import { PageLayout } from '../../components/layout/PageLayout';
 import { Card } from '../../components/ui/Card';
 import { Button } from '../../components/ui/Button';
@@ -14,6 +14,8 @@ import { BloodRequest } from '../../types';
 import { ROUTES } from '../../constants';
 import { Modal } from '../../components/ui/Modal';
 import { Input } from '../../components/ui/Input';
+import { MapModal } from '../../components/common/MapModal';
+import { buildAddressQuery, getGoogleMapsEmbedUrl, openGoogleMapsDirections } from '../../utils/mapUtils';
 import toast from 'react-hot-toast';
 
 export function RequestDetails() {
@@ -24,6 +26,7 @@ export function RequestDetails() {
   const qc = useQueryClient();
   const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  const [isMapModalOpen, setIsMapModalOpen] = useState(false);
 
   const { data: request, isLoading } = useQuery<BloodRequest>({
     queryKey: ['request', id],
@@ -115,13 +118,72 @@ export function RequestDetails() {
           )}
         </Card>
 
-        {/* Hospital info */}
-        <Card>
-          <h3 className="font-semibold text-gray-700 text-sm mb-3 flex items-center gap-2"><MapPin size={14} /> Hospital Details</h3>
-          <p className="font-medium text-gray-900">{request.hospitalName}</p>
-          {request.hospitalAddress && <p className="text-sm text-gray-500">{request.hospitalAddress}</p>}
-          {request.hospitalCity && <p className="text-sm text-gray-500">{request.hospitalCity}</p>}
-        </Card>
+        {/* Hospital info with Interactive Map & Turn-by-Turn GPS */}
+        {(() => {
+          const destinationQuery = buildAddressQuery(
+            request.hospitalName,
+            request.hospitalAddress,
+            request.hospitalCity
+          );
+          return (
+            <Card className="overflow-hidden border border-gray-200 shadow-sm">
+              <div className="flex items-start justify-between gap-4 mb-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-red-50 text-primary flex items-center justify-center shrink-0 mt-0.5">
+                    <MapPin size={20} />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-gray-900 text-base">{request.hospitalName}</h3>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {[request.hospitalAddress, request.hospitalCity].filter(Boolean).join(', ') || 'Address not specified'}
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsMapModalOpen(true)}
+                  className="px-3 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs font-semibold rounded-lg border border-gray-200 transition-colors flex items-center gap-1.5 shrink-0"
+                  title="Expand Interactive Map"
+                >
+                  <Maximize2 size={13} />
+                  <span>Expand Map</span>
+                </button>
+              </div>
+
+              {/* Embedded interactive map preview */}
+              <div className="relative w-full h-48 rounded-xl overflow-hidden border border-gray-200 bg-gray-100 my-3 shadow-inner group">
+                <iframe
+                  title="Hospital Map Location"
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0 }}
+                  loading="lazy"
+                  allowFullScreen
+                  referrerPolicy="no-referrer-when-downgrade"
+                  src={getGoogleMapsEmbedUrl(destinationQuery)}
+                />
+              </div>
+
+              {/* Turn-by-Turn GPS Navigation button matching mobile */}
+              <button
+                type="button"
+                onClick={() => openGoogleMapsDirections(destinationQuery)}
+                className="w-full flex items-center justify-between p-3.5 rounded-xl border border-red-200 bg-red-50/60 hover:bg-red-50 text-primary transition-all group shadow-xs cursor-pointer"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-lg bg-red-100 text-primary flex items-center justify-center">
+                    <Navigation size={18} />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-bold text-sm text-primary leading-tight">Open Turn-by-Turn GPS</p>
+                    <p className="text-xs text-gray-500">Navigate directly to {request.hospitalName} in Google Maps</p>
+                  </div>
+                </div>
+                <ExternalLink size={16} className="text-primary group-hover:translate-x-0.5 transition-transform" />
+              </button>
+            </Card>
+          );
+        })()}
 
         {/* Date/time */}
         <Card>
@@ -233,6 +295,14 @@ export function RequestDetails() {
           />
         </form>
       </Modal>
+
+      <MapModal
+        isOpen={isMapModalOpen}
+        onClose={() => setIsMapModalOpen(false)}
+        title="Hospital Location & Navigation"
+        name={request.hospitalName}
+        address={buildAddressQuery(request.hospitalAddress, request.hospitalCity)}
+      />
     </PageLayout>
   );
 }

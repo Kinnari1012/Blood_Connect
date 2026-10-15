@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { PageLayout } from '../../components/layout/PageLayout';
-import { Check, X, AlertCircle, MapPin, Phone, Calendar, Search } from 'lucide-react';
+import { Check, X, AlertCircle, MapPin, Phone, Calendar, Search, Navigation, ExternalLink } from 'lucide-react';
+import { MapModal } from '../../components/common/MapModal';
+import { openGoogleMapsDirections, buildAddressQuery } from '../../utils/mapUtils';
 import toast from 'react-hot-toast';
 
 export function IncomingRequestsPage() {
+  const [selectedMapLocation, setSelectedMapLocation] = useState<{ name: string; address: string } | null>(null);
   const [requests, setRequests] = useState<any[]>(() => {
     const saved = localStorage.getItem('incoming_requests');
     if (saved) return JSON.parse(saved);
@@ -120,11 +123,34 @@ export function IncomingRequestsPage() {
                       <Calendar size={16} className="text-gray-400" />
                       <div><span className="font-semibold text-gray-900">Required:</span> {req.date}</div>
                     </div>
-                    <div className="flex items-start gap-3 text-sm text-gray-600">
-                      <MapPin size={16} className="text-gray-400 mt-0.5" />
-                      <div>
-                        <span className="font-semibold text-gray-900">{req.location} <span className="text-primary text-xs ml-1 font-bold">({req.distance})</span></span>
-                        <p className="text-xs text-gray-500 mt-0.5">{req.address}</p>
+                    <div className="flex items-start justify-between gap-3 text-sm text-gray-600">
+                      <div className="flex items-start gap-3">
+                        <MapPin size={16} className="text-gray-400 mt-0.5 shrink-0" />
+                        <div>
+                          <span className="font-semibold text-gray-900">{req.location} <span className="text-primary text-xs ml-1 font-bold">({req.distance})</span></span>
+                          <p className="text-xs text-gray-500 mt-0.5">{req.address}</p>
+                        </div>
+                      </div>
+                      
+                      {/* Turn-by-Turn Directions button matching mobile */}
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => setSelectedMapLocation({ name: req.location, address: req.address || req.location })}
+                          className="px-2.5 py-1.5 bg-white hover:bg-gray-100 text-gray-600 text-xs font-semibold rounded-lg border border-gray-200 transition-colors shadow-2xs"
+                          title="Preview Map"
+                        >
+                          Map
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openGoogleMapsDirections(buildAddressQuery(req.location, req.address))}
+                          className="inline-flex items-center gap-1 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-primary text-xs font-bold rounded-lg border border-red-200 transition-colors shadow-2xs"
+                          title="Open Turn-by-Turn GPS Directions in Google Maps"
+                        >
+                          <Navigation size={12} />
+                          <span>Directions</span>
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -158,6 +184,14 @@ export function IncomingRequestsPage() {
           )}
         </div>
       </div>
+
+      <MapModal
+        isOpen={!!selectedMapLocation}
+        onClose={() => setSelectedMapLocation(null)}
+        title="Hospital Location & Directions"
+        name={selectedMapLocation?.name}
+        address={selectedMapLocation?.address || ''}
+      />
     </PageLayout>
   );
 }

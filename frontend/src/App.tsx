@@ -14,9 +14,12 @@ import { ForgotPassword } from './pages/public/ForgotPassword';
 import { ResetPassword } from './pages/public/ResetPassword';
 import { Register } from './pages/public/Register';
 import { Home } from './pages/public/Home';
+import { LandingPage } from './pages/public/LandingPage';
+import { FindBlood } from './pages/public/FindBlood';
 import { FindDonorsPage } from './pages/user/FindDonorsPage';
 import { DonorRegistration } from './pages/donor/DonorRegistration';
 import { DonorDashboard } from './pages/donor/DonorDashboard';
+import { UserDashboard } from './pages/dashboard/UserDashboard';
 import { DonationHistoryPage } from './pages/user/DonationHistoryPage';
 import { BloodRequestForm } from './pages/seeker/BloodRequestForm';
 import { RequestDetails } from './pages/seeker/RequestDetails';
@@ -86,7 +89,10 @@ function AppRoutes() {
   return (
     <Routes>
       {/* Public */}
-      <Route path="/" element={<SplashScreen />} />
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/home" element={<Home />} />
+      <Route path="/landing" element={<LandingPage />} />
+      <Route path="/splash" element={<SplashScreen />} />
       <Route path="/onboarding" element={<Onboarding />} />
       <Route path="/login" element={<Login />} />
       <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -94,16 +100,17 @@ function AppRoutes() {
       <Route path="/register" element={<Register />} />
 
       {/* Main Dashboard & Sidebar Distinct Routes */}
-      <Route path="/user/dashboard" element={<PrivateRoute><Home /></PrivateRoute>} />
+      <Route path="/user/dashboard" element={<PrivateRoute><UserDashboard /></PrivateRoute>} />
+      <Route path="/donor/dashboard" element={<DonorRoute><DonorDashboard /></DonorRoute>} />
       <Route path="/admin/dashboard" element={<AdminRoute><AdminDashboard /></AdminRoute>} />
-      <Route path="/admin/users" element={<AdminRoute><UserManagement /></AdminRoute>} />
-      <Route path="/admin/donors" element={<AdminRoute><UserManagement /></AdminRoute>} />
+      <Route path="/admin/users" element={<AdminRoute><UsersPage /></AdminRoute>} />
+      <Route path="/admin/donors" element={<AdminRoute><DonorsPage /></AdminRoute>} />
       <Route path="/admin/requests" element={<AdminRoute><RequestManagement /></AdminRoute>} />
       <Route path="/admin/reports" element={<AdminRoute><ReportsPage /></AdminRoute>} />
       <Route path="/super-admin/dashboard" element={<SuperAdminRoute><SuperAdminDashboard /></SuperAdminRoute>} />
       <Route path="/super-admin/admins" element={<SuperAdminRoute><AdminManagement /></SuperAdminRoute>} />
-      <Route path="/super-admin/users" element={<SuperAdminRoute><UserManagement /></SuperAdminRoute>} />
-      <Route path="/super-admin/donors" element={<SuperAdminRoute><UserManagement /></SuperAdminRoute>} />
+      <Route path="/super-admin/users" element={<SuperAdminRoute><UsersPage /></SuperAdminRoute>} />
+      <Route path="/super-admin/donors" element={<SuperAdminRoute><DonorsPage /></SuperAdminRoute>} />
       <Route path="/super-admin/requests" element={<SuperAdminRoute><RequestManagement /></SuperAdminRoute>} />
       <Route path="/super-admin/reports" element={<SuperAdminRoute><ReportsPage /></SuperAdminRoute>} />
       <Route path="/super-admin/settings" element={<SuperAdminRoute><Settings /></SuperAdminRoute>} />
@@ -115,9 +122,10 @@ function AppRoutes() {
       <Route path="/dashboard" element={
         <PrivateRoute>
           {React.createElement(() => {
-            const { user } = useAuth();
+            const { user, isDonor } = useAuth();
             if (user?.role === 'SUPER_ADMIN') return <Navigate to={ROUTES.SUPER_ADMIN_DASHBOARD} replace />;
             if (user?.role === 'ADMIN') return <Navigate to={ROUTES.ADMIN_DASHBOARD} replace />;
+            if (isDonor) return <Navigate to={ROUTES.DONOR_DASHBOARD} replace />;
             return <Navigate to={ROUTES.USER_DASHBOARD} replace />;
           })}
         </PrivateRoute>
@@ -135,7 +143,8 @@ function AppRoutes() {
       <Route path="/donation-history" element={<PrivateRoute><DonationHistoryPage /></PrivateRoute>} />
 
       {/* Other routes */}
-      <Route path="/find-blood" element={<PrivateRoute><FindDonorsPage /></PrivateRoute>} />
+      <Route path="/find-blood" element={<FindBlood />} />
+      <Route path="/donors/find" element={<PrivateRoute><FindDonorsPage /></PrivateRoute>} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
       <Route path="/terms" element={<TermsAndConditions />} />
       <Route path="/help" element={<HelpSupport />} />

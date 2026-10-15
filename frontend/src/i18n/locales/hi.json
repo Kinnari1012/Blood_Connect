@@ -62,12 +62,12 @@
     "signIn": "साइन इन",
     "iAmDonor": "मैं रक्त दान करना चाहता/चाहती हूं",
     "iAmSeeker": "मुझे रक्त चाहिए",
-    "selectUserType": "आप BloodConnect का उपयोग कैसे करना चाहते हैं?",
+    "selectUserType": "आप LifeLink का उपयोग कैसे करना चाहते हैं?",
     "changePassword": "पासवर्ड बदलें",
     "currentPassword": "वर्तमान पासवर्ड",
     "newPassword": "नया पासवर्ड",
     "loginSuccess": "स्वागत है!",
-    "registerSuccess": "पंजीकरण सफल। BloodConnect में आपका स्वागत है!",
+    "registerSuccess": "पंजीकरण सफल। LifeLink में आपका स्वागत है!",
     "logoutSuccess": "आप लॉग आउट हो गए।"
   },
   "donor": {

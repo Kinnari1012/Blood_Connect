@@ -6,10 +6,12 @@ import i18n from '../i18n';
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<User>;
+  login: (identifier: string, secret: string, isOtp?: boolean, donorAvailability?: boolean) => Promise<User>;
+  sendOtp: (identifier: string) => Promise<any>;
   register: (data: unknown) => Promise<void>;
   logout: () => Promise<void>;
   updateUser: (user: User) => void;
+  refreshUser: () => Promise<void>;
   isAuthenticated: boolean;
   isAdmin: boolean;
   isSuperAdmin: boolean;
@@ -42,12 +44,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  const login = async (email: string, password: string) => {
-    const res = await authApi.login({ email, password });
+  const login = async (identifier: string, secret: string, isOtp = false, donorAvailability?: boolean) => {
+    const payload: any = {
+      identifier: identifier.trim(),
+      ...(isOtp ? { otp: secret.trim() } : { password: secret }),
+      ...(typeof donorAvailability === 'boolean' ? { donorAvailability } : {}),
+    };
+    const res = await authApi.login(payload);
     const { user: userData, accessToken } = res.data.data;
     localStorage.setItem('accessToken', accessToken);
     setUser(userData);
     return userData;
+  };
+
+  const sendOtp = async (identifier: string) => {
+    const res = await authApi.sendOtp({ identifier: identifier.trim(), purpose: 'LOGIN' });
+    return res.data;
   };
 
   const register = async (data: unknown) => {
@@ -66,16 +78,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const updateUser = (updatedUser: User) => setUser(updatedUser);
 
+  const refreshUser = async () => {
+    try {
+      const res = await authApi.getMe();
+      if (res.data?.data) {
+        setUser(res.data.data);
+      }
+    } catch {}
+  };
+
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
   const isSuperAdmin = user?.role === 'SUPER_ADMIN';
-  const isUser = user?.role === 'USER';
-  const isDonor = isUser;
-  const isSeeker = isUser;
+  const isDonor = user?.role === 'DONOR' || (user?.role !== 'USER' && !!user?.donorProfile);
+  const isSeeker = user?.role === 'USER' || user?.role === 'SEEKER';
+  const isUser = isSeeker;
   const hasPermission = (p: string) => isSuperAdmin || true; // permissions simplified
 
   return (
     <AuthContext.Provider value={{
-      user, loading, login, register, logout, updateUser,
+      user, loading, login, sendOtp, register, logout, updateUser, refreshUser,
       isAuthenticated: !!user,
       isAdmin, isSuperAdmin, isUser, isDonor, isSeeker, hasPermission,
     }}>

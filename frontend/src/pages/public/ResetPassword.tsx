@@ -48,8 +48,8 @@ export function ResetPassword() {
         {/* Left Side: Branding */}
         <div className="w-full md:w-1/2 bg-gradient-primary text-white p-10 flex flex-col justify-center items-center text-center relative overflow-hidden">
           <div className="absolute inset-0 opacity-10 bg-[radial-gradient(circle_at_center,_white_0%,_transparent_100%)] mix-blend-overlay"></div>
-          <img src="/logo.jpg" alt="BloodConnect Logo" className="w-24 h-24 rounded-full border-4 border-white/20 mb-6 shadow-xl relative z-10" />
-          <h1 className="text-3xl font-black mb-2 relative z-10">BloodConnect</h1>
+          <img src="/logo.jpg" alt="LifeLink Logo" className="w-24 h-24 rounded-full border-4 border-white/20 mb-6 shadow-xl relative z-10" />
+          <h1 className="text-3xl font-black mb-2 relative z-10">LifeLink</h1>
           <p className="text-white/80 font-semibold mb-6 tracking-wide text-sm relative z-10">Connecting Donors. Saving Lives.</p>
           <div className="w-12 h-1 bg-white/30 rounded-full mb-6 relative z-10"></div>
           <p className="text-lg font-medium text-white/90 italic max-w-xs relative z-10">“Every connection can help save a life.”</p>

@@ -5,10 +5,15 @@ import { requireRole } from '../../middleware/requireRole';
 
 const router = Router();
 
+// Public routes (no authentication required)
+router.get('/public/live-radar', RequestController.getPublicLiveRadar);
+
 router.use(verifyToken);
 
+router.get('/', RequestController.getAllRequests);
 router.post('/', requireRole('USER'), RequestController.createRequest);
 router.get('/my', RequestController.getMyRequests);
+router.get('/matching', RequestController.getMatchingRequests);
 router.get('/:id', RequestController.getRequest);
 router.delete('/:id', requireRole('USER'), RequestController.cancelRequest);
 

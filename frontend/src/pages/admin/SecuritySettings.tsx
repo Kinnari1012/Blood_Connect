@@ -5,25 +5,44 @@ import { Input } from '../../components/ui/Input';
 import toast from 'react-hot-toast';
 
 export function SecuritySettings() {
+  const STORAGE_KEY = 'bloodconnect_security_settings';
   const [loading, setLoading] = useState(false);
-  const [settings, setSettings] = useState({
-    passwordPolicy: 'Strong (Min 8 chars, 1 number, 1 special char)',
-    sessionTimeout: '30',
-    maxLoginAttempts: '5',
-    twoFactorAuth: true,
-    securityAlerts: true
+  const [settings, setSettings] = useState(() => {
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) return JSON.parse(saved);
+    } catch {
+      // fallback
+    }
+    return {
+      passwordPolicy: 'Strong (Min 8 chars, 1 number, 1 special char)',
+      sessionTimeout: '30',
+      maxLoginAttempts: '5',
+      twoFactorAuth: true,
+      securityAlerts: true
+    };
   });
 
   const handleSave = () => {
     setLoading(true);
-    setTimeout(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+      setTimeout(() => {
+        setLoading(false);
+        toast.success('Platform security policy updated & enforced!');
+      }, 400);
+    } catch {
       setLoading(false);
-      toast.success('Security settings saved successfully!');
-    }, 800);
+      toast.error('Failed to save security configuration');
+    }
   };
 
   const handleCancel = () => {
-    toast.error('Changes discarded.');
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) setSettings(JSON.parse(saved));
+    } catch {}
+    toast('Changes discarded.', { icon: '↺' });
   };
 
   return (

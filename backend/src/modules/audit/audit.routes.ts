@@ -30,13 +30,24 @@ router.get('/', async (req: Request, res: Response, next: NextFunction) => {
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .populate('performedById', 'fullName email role')
-        .populate('targetUserId', 'fullName email')
+        .populate('performedById', 'firstName lastName email role')
+        .populate('targetUserId', 'firstName lastName email')
         .lean(),
       AuditLog.countDocuments(filter),
     ]);
 
-    res.json({ success: true, data: logs, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } });
+    const formatted = logs.map((l: any) => ({
+      ...l,
+      id: l._id.toString(),
+      admin: l.performedById
+        ? `${l.performedById.firstName || ''} ${l.performedById.lastName || ''} (${l.performedById.role || 'Admin'})`.trim()
+        : 'System',
+      target: l.targetUserId ? `${l.targetUserId.firstName || ''} ${l.targetUserId.lastName || ''}`.trim() : l.targetResource || 'System',
+      ip: l.ipAddress || '127.0.0.1',
+      time: l.createdAt ? new Date(l.createdAt).toLocaleString() : 'Recently',
+    }));
+
+    res.json({ success: true, data: formatted, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } });
   } catch (err) { next(err); }
 });
 
