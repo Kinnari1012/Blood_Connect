@@ -9,7 +9,8 @@ export function requireRole(...roles: UserRole[]) {
         error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
       });
     }
-    if (!roles.includes(req.user.role as UserRole)) {
+    const effectiveRoles = roles.includes('USER') ? [...roles, 'DONOR'] : roles;
+    if (!effectiveRoles.includes(req.user.role as UserRole)) {
       return res.status(403).json({
         success: false,
         error: { code: 'FORBIDDEN', message: 'You do not have permission for this action' },
@@ -27,7 +28,7 @@ export function requirePermission(permission: string) {
         error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
       });
     }
-    if (req.user.role === 'SUPER_ADMIN') return next();
+    if (req.user.role === 'SUPER_ADMIN' || req.user.role === 'ADMIN') return next();
     return res.status(403).json({
       success: false,
       error: { code: 'FORBIDDEN', message: `Permission required: ${permission}` },

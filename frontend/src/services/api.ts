@@ -70,10 +70,15 @@ export default api;
 export const authApi = {
   register: (data: unknown) => api.post('/auth/register', data),
   login: (data: unknown) => api.post('/auth/login', data),
+  sendOtp: (data: unknown) => api.post('/auth/send-otp', data),
   logout: () => api.post('/auth/logout'),
   refresh: () => api.post('/auth/refresh'),
   getMe: () => api.get('/auth/me'),
+  updateProfile: (data: unknown) => api.put('/auth/profile', data),
   changePassword: (data: unknown) => api.put('/auth/change-password', data),
+  getSettings: () => api.get('/auth/settings'),
+  updateSettings: (data: unknown) => api.put('/auth/settings', data),
+  exportData: () => api.get('/auth/export-data'),
 };
 
 // Donors
@@ -90,6 +95,7 @@ export const donorApi = {
 
 // Requests
 export const requestApi = {
+  getPublicLiveRadar: (params?: { city?: string; cluster?: string }) => api.get('/requests/public/live-radar', { params }),
   create: (data: unknown) => api.post('/requests', data),
   getAllRequests: (params?: unknown) => api.get('/requests', { params }),
   getMyRequests: (params?: unknown) => api.get('/requests/my', { params }),
@@ -103,6 +109,14 @@ export const requestApi = {
   approveDonor: (requestId: string, responseId: string) => api.post(`/requests/${requestId}/responses/${responseId}/approve`),
   getDonations: (params?: unknown) => api.get('/donations', { params }),
   getMyDonations: (params?: unknown) => api.get('/donations/my', { params }),
+  createDonation: (data: unknown) => api.post('/donations', data),
+};
+
+// Donations
+export const donationApi = {
+  getAll: (params?: unknown) => api.get('/donations', { params }),
+  getMy: (params?: unknown) => api.get('/donations/my', { params }),
+  create: (data: unknown) => api.post('/donations', data),
 };
 
 // Notifications
@@ -123,6 +137,7 @@ export const reportApi = {
 // Admin
 export const adminApi = {
   getUsers: (params?: unknown) => api.get('/admin/users', { params }),
+  getDonors: (params?: unknown) => api.get('/admin/donors', { params }),
   getUser: (id: string) => api.get(`/admin/users/${id}`),
   createUser: (data: unknown) => api.post('/admin/users', data),
   updateUserStatus: (id: string, data: unknown) => api.put(`/admin/users/${id}/status`, data),
@@ -135,6 +150,7 @@ export const adminApi = {
 // Analytics
 export const analyticsApi = {
   getOverview: () => api.get('/analytics/overview'),
+  getPublicStats: () => api.get('/analytics/public-stats'),
   getBloodGroups: () => api.get('/analytics/blood-groups'),
   getCities: () => api.get('/analytics/cities'),
   getRegistrations: () => api.get('/analytics/registrations'),
@@ -145,3 +161,12 @@ export const analyticsApi = {
 export const auditApi = {
   getLogs: (params?: unknown) => api.get('/audit-logs', { params }),
 };
+
+// Testimonials
+export const testimonialApi = {
+  getAll: () => api.get('/testimonials'),
+  create: (data: { authorName: string; role?: string; city: string; bloodGroup: string; content: string; rating?: number }) =>
+    api.post('/testimonials', data),
+  approve: (id: string, isApproved: boolean) => api.patch(`/testimonials/${id}/approve`, { isApproved }),
+};
+

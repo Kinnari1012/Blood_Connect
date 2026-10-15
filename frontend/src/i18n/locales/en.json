@@ -62,12 +62,12 @@
     "signIn": "Sign In",
     "iAmDonor": "I want to Donate Blood",
     "iAmSeeker": "I need Blood",
-    "selectUserType": "How would you like to use BloodConnect?",
+    "selectUserType": "How would you like to use LifeLink?",
     "changePassword": "Change Password",
     "currentPassword": "Current Password",
     "newPassword": "New Password",
     "loginSuccess": "Welcome back!",
-    "registerSuccess": "Registration successful. Welcome to BloodConnect!",
+    "registerSuccess": "Registration successful. Welcome to LifeLink!",
     "logoutSuccess": "You have been logged out."
   },
   "donor": {

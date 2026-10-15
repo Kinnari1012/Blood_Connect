@@ -14,9 +14,15 @@ const authLimiter = rateLimit({
 
 router.post('/register', authLimiter, AuthController.register);
 router.post('/login', authLimiter, AuthController.login);
+router.post('/login-otp', authLimiter, AuthController.login);
+router.post('/send-otp', authLimiter, AuthController.sendOtp);
 router.post('/refresh', AuthController.refresh);
 router.post('/logout', AuthController.logout);
 router.get('/me', verifyToken, AuthController.getMe);
+router.put('/profile', verifyToken, AuthController.updateProfile);
 router.put('/change-password', verifyToken, AuthController.changePassword);
+router.get('/settings', verifyToken, AuthController.getSettings);
+router.put('/settings', verifyToken, AuthController.updateSettings);
+router.get('/export-data', verifyToken, AuthController.exportData);
 
 export default router;

@@ -3,21 +3,31 @@ export type UserStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | 'PENDING' | 'DISA
 export type BloodGroup = 'A_POS' | 'A_NEG' | 'B_POS' | 'B_NEG' | 'AB_POS' | 'AB_NEG' | 'O_POS' | 'O_NEG';
 export type Gender = 'MALE' | 'FEMALE' | 'OTHER';
 export type EmergencyLevel = 'NORMAL' | 'URGENT' | 'CRITICAL';
-export type RequestStatus = 'PENDING' | 'MATCHING' | 'DONOR_ACCEPTED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED';
-export type DonorResponseStatus = 'NOTIFIED' | 'ACCEPTED' | 'DECLINED' | 'COMPLETED';
+export type RequestStatus = 'PENDING' | 'MATCHING' | 'DONOR_ACCEPTED' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELLED' | 'REJECTED' | 'PENDING_VERIFICATION' | 'Pending Verification' | 'Searching Donors' | 'Donor Found' | 'Partially Fulfilled' | 'Fulfilled' | 'Cancelled' | 'Rejected';
+export type DonorResponseStatus = 'NOTIFIED' | 'ACCEPTED' | 'DECLINED' | 'COMPLETED' | 'APPROVED' | 'REJECTED' | 'PENDING';
 export type NotificationType = 'NEW_BLOOD_REQUEST' | 'EMERGENCY_REQUEST' | 'DONOR_ACCEPTED' | 'DONOR_DECLINED' | 'REQUEST_COMPLETED' | 'DONATION_REMINDER' | 'ACCOUNT_SECURITY' | 'SYSTEM';
 
 export interface User {
   id: string;
   email: string;
   fullName: string;
+  firstName?: string;
+  lastName?: string;
   mobile: string;
+  phone?: string;
   role: UserRole;
   status: UserStatus;
-  language: string;
+  language?: string;
   lastLoginAt?: string;
-  createdAt: string;
-  permissions: string[];
+  createdAt?: string;
+  permissions?: string[];
+  bloodGroup?: string;
+  availability?: boolean | string;
+  address?: string;
+  city?: string;
+  state?: string;
+  country?: string;
+  location?: string;
   donorProfile?: DonorProfileSummary;
 }
 
@@ -60,6 +70,7 @@ export interface BloodRequest {
   isEmergency: boolean;
   status: RequestStatus;
   notes?: string;
+  rejectionReason?: string;
   createdAt: string;
   requester?: { id: string; fullName: string; mobile?: string };
   donorResponses?: DonorResponse[];
@@ -67,11 +78,12 @@ export interface BloodRequest {
 
 export interface DonorResponse {
   id: string;
+  _id?: string;
   requestId: string;
   donorId: string;
   status: DonorResponseStatus;
   respondedAt?: string;
-  donor?: { id: string; fullName: string };
+  donor?: { id: string; fullName?: string; firstName?: string; lastName?: string };
 }
 
 export interface Notification {

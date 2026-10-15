@@ -12,6 +12,7 @@ import { Input } from '../../components/ui/Input';
 import { Button } from '../../components/ui/Button';
 import { StatusBadge } from '../../components/ui/Badge';
 import { LoadingSpinner, EmptyState, Alert } from '../../components/ui/Alert';
+import { BLOOD_GROUP_DISPLAY } from '../../constants';
 
 const createUserSchema = z.object({
   firstName: z.string().min(2),
@@ -41,12 +42,16 @@ type CreateUserForm = z.infer<typeof createUserSchema>;
 export function UsersPage() {
   const qc = useQueryClient();
   const [search, setSearch] = useState('');
+  const [roleFilter, setRoleFilter] = useState<'ALL' | 'USER' | 'DONOR' | 'ADMIN'>('ALL');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [apiError, setApiError] = useState('');
 
   const { data: usersData, isLoading } = useQuery({
-    queryKey: ['admin', 'users', search],
-    queryFn: () => adminApi.getUsers({ search }).then(r => r.data),
+    queryKey: ['admin', 'users', search, roleFilter],
+    queryFn: () => adminApi.getUsers({
+      search,
+      role: roleFilter === 'ALL' ? undefined : roleFilter
+    }).then(r => r.data),
   });
 
   const createUser = useMutation({
@@ -69,32 +74,60 @@ export function UsersPage() {
   });
 
   const { register, handleSubmit, formState: { errors, isSubmitting }, reset } = useForm<CreateUserForm>({
-    resolver: zodResolver(createUserSchema),
+    resolver: zodResolver(createUserSchema) as any,
     defaultValues: { status: 'ACTIVE', availability: true },
   });
 
   const users = usersData?.data || [];
 
   return (
-    <PageLayout title="Users Directory" subtitle="Manage all registered platform users">
+    <PageLayout title="Users Directory" subtitle="Manage all platform registered users, seekers, donors, and administrators">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col min-h-[500px]">
-        <div className="p-5 border-b border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-           <h2 className="text-lg font-bold text-gray-900">All Users</h2>
-           <div className="flex items-center gap-3 w-full sm:w-auto">
-             <div className="relative flex-1 sm:w-64">
-               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-               <input 
-                 type="text" 
-                 placeholder="Search users..." 
-                 value={search}
-                 onChange={(e) => setSearch(e.target.value)}
-                 className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-               />
-             </div>
-             <button onClick={() => { setIsModalOpen(true); reset(); setApiError(''); }} className="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:opacity-90 focus:outline-none transition-colors">
-               Add User
-             </button>
-           </div>
+        {/* Header & Search */}
+        <div className="p-5 border-b border-gray-200 flex flex-col gap-4">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">Platform Users</h2>
+              <p className="text-xs text-gray-500 mt-0.5">Filter and manage platform accounts by user role</p>
+            </div>
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <div className="relative flex-1 sm:w-64">
+                <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input 
+                  type="text" 
+                  placeholder="Search by name, email, phone..." 
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+                />
+              </div>
+              <button onClick={() => { setIsModalOpen(true); reset(); setApiError(''); }} className="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:opacity-90 focus:outline-none transition-colors">
+                Add User
+              </button>
+            </div>
+          </div>
+
+          {/* Role Filter Tabs */}
+          <div className="flex items-center gap-2 border-t border-gray-100 pt-3 overflow-x-auto hide-scrollbar">
+            {[
+              { id: 'ALL', label: 'All Users' },
+              { id: 'USER', label: 'Seekers / General Users' },
+              { id: 'DONOR', label: 'Registered Donors' },
+              { id: 'ADMIN', label: 'Administrators' },
+            ].map(tab => (
+              <button
+                key={tab.id}
+                onClick={() => setRoleFilter(tab.id as any)}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${
+                  roleFilter === tab.id
+                    ? 'bg-primary text-white shadow-sm'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
         </div>
         
         {isLoading ? (
@@ -103,55 +136,82 @@ export function UsersPage() {
           <div className="flex-1 flex flex-col items-center justify-center p-12 text-gray-500">
              <Users size={48} className="text-gray-300 mb-4" />
              <p className="text-lg font-medium text-gray-900">No users found</p>
-             <p className="text-sm">Try adjusting your search criteria</p>
+             <p className="text-sm">Try adjusting your search criteria or role filter</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm whitespace-nowrap">
               <thead className="bg-gray-50 border-b border-gray-200 text-gray-600">
                 <tr>
-                  <th className="px-6 py-4 font-medium">Name & Email</th>
-                  <th className="px-6 py-4 font-medium">Phone</th>
-                  <th className="px-6 py-4 font-medium">Blood Group</th>
-                  <th className="px-6 py-4 font-medium">Role</th>
-                  <th className="px-6 py-4 font-medium">Status</th>
-                  <th className="px-6 py-4 font-medium">Location</th>
-                  <th className="px-6 py-4 font-medium text-right">Actions</th>
+                  <th className="px-6 py-4 font-semibold">User Details</th>
+                  <th className="px-6 py-4 font-semibold">Phone</th>
+                  <th className="px-6 py-4 font-semibold">Role</th>
+                  <th className="px-6 py-4 font-semibold">Blood Group</th>
+                  <th className="px-6 py-4 font-semibold">Status</th>
+                  <th className="px-6 py-4 font-semibold">Location</th>
+                  <th className="px-6 py-4 font-semibold text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
-                {users.map((u: any) => (
-                  <tr key={u.id} className="hover:bg-gray-50 transition-colors">
-                    <td className="px-6 py-4">
-                      <p className="font-semibold text-gray-900">{u.firstName} {u.lastName}</p>
-                      <p className="text-xs text-gray-500">{u.email}</p>
-                    </td>
-                    <td className="px-6 py-4 text-gray-600">{u.phone}</td>
-                    <td className="px-6 py-4 font-medium text-red-600">{u.bloodGroup || u.donorProfile?.bloodGroup || '-'}</td>
-                    <td className="px-6 py-4">
-                      <span className={`px-2.5 py-1 rounded-md text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-200`}>
-                        {u.role}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <StatusBadge status={u.status} />
-                    </td>
-                    <td className="px-6 py-4 text-gray-600">{u.city || u.donorProfile?.city || '-'}</td>
-                    <td className="px-6 py-4 text-right">
-                      {u.role !== 'SUPER_ADMIN' && u.role !== 'ADMIN' && (
-                        u.status === 'ACTIVE' ? (
-                          <Button size="sm" variant="ghost" className="text-red-600" onClick={() => updateStatus.mutate({ id: u.id, status: 'DISABLED' })}>
-                            Disable
-                          </Button>
+                {users.map((u: any) => {
+                  const roleBadge = u.role === 'SUPER_ADMIN' 
+                    ? { label: 'Super Admin', color: 'bg-amber-50 text-amber-800 border-amber-200' }
+                    : u.role === 'ADMIN'
+                    ? { label: 'Admin', color: 'bg-purple-50 text-purple-800 border-purple-200' }
+                    : u.role === 'DONOR'
+                    ? { label: 'Blood Donor', color: 'bg-rose-50 text-rose-800 border-rose-200' }
+                    : { label: 'Seeker / User', color: 'bg-blue-50 text-blue-800 border-blue-200' };
+
+                  const rawBg = u.bloodGroup || u.donorProfile?.bloodGroup;
+                  const bgDisplay = rawBg
+                    ? (BLOOD_GROUP_DISPLAY[rawBg as keyof typeof BLOOD_GROUP_DISPLAY] || rawBg.replace('_POS', '+').replace('_NEG', '-'))
+                    : '-';
+
+                  return (
+                    <tr key={u.id || u._id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-6 py-4">
+                        <p className="font-semibold text-gray-900">{u.firstName} {u.lastName}</p>
+                        <p className="text-xs text-gray-500">{u.email}</p>
+                      </td>
+                      <td className="px-6 py-4 text-gray-600">{u.phone}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2.5 py-1 rounded-md text-xs font-bold border ${roleBadge.color}`}>
+                          {roleBadge.label}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 font-bold text-red-600">
+                        {bgDisplay !== '-' ? (
+                          <span className="inline-block px-2 py-0.5 rounded bg-red-50 text-red-700 border border-red-100 font-extrabold text-xs">
+                            {bgDisplay}
+                          </span>
                         ) : (
-                          <Button size="sm" variant="ghost" className="text-green-600" onClick={() => updateStatus.mutate({ id: u.id, status: 'ACTIVE' })}>
-                            Enable
-                          </Button>
-                        )
-                      )}
-                    </td>
-                  </tr>
-                ))}
+                          <span className="text-gray-400 font-normal">-</span>
+                        )}
+                      </td>
+                      <td className="px-6 py-4">
+                        <StatusBadge status={u.status} />
+                      </td>
+                      <td className="px-6 py-4 text-gray-600">{u.city || u.donorProfile?.city || '-'}</td>
+                      <td className="px-6 py-4 text-right">
+                        {u.role !== 'SUPER_ADMIN' && (
+                          <button
+                            onClick={() => updateStatus.mutate({
+                              id: u.id || u._id,
+                              status: u.status === 'ACTIVE' ? 'DISABLED' : 'ACTIVE'
+                            })}
+                            className={`text-xs font-bold px-3 py-1.5 rounded-lg transition-colors focus:outline-none ${
+                              u.status === 'ACTIVE'
+                                ? 'text-red-700 bg-red-50 hover:bg-red-100'
+                                : 'text-green-700 bg-green-50 hover:bg-green-100'
+                            }`}
+                          >
+                            {u.status === 'ACTIVE' ? 'Disable' : 'Enable'}
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

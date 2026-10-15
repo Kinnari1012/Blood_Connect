@@ -24,13 +24,7 @@ export function Reports() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['reports'] }),
   });
 
-  const mockReports = [
-    { id: '1', category: 'FAKE_REQUEST', status: 'NEW', reporter: { fullName: 'Rahul Sharma' }, reportedUser: { fullName: 'Fake User 1' }, description: 'This user created 10 fake requests in one day.', createdAt: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString() },
-    { id: '2', category: 'SPAM', status: 'UNDER_REVIEW', reporter: { fullName: 'Pooja Desai' }, reportedUser: { fullName: 'Spammer' }, description: 'Sending unnecessary messages.', createdAt: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString() },
-    { id: '3', category: 'ABUSIVE', status: 'RESOLVED', reporter: { fullName: 'Amit Patel' }, reportedUser: { fullName: 'Toxic User' }, description: 'Using abusive language in chat.', createdAt: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString() },
-  ] as any[];
-
-  const reports: UserReport[] = data?.length ? data : mockReports;
+  const reports: UserReport[] = Array.isArray(data) ? data : [];
 
   return (
     <PageLayout title={t('report.title')}>
@@ -49,9 +43,11 @@ export function Reports() {
                     <StatusBadge status={report.status} />
                   </div>
                   <p className="text-sm font-medium text-gray-900">
-                    <span className="text-gray-500">Reporter:</span> {report.reporter?.fullName}
+                    <span className="text-gray-500">Reporter:</span>{' '}
+                    {report.reporter?.fullName || (report as any).reporterId?.fullName || (report as any).reporterId?.email || 'Anonymous'}
                     {' → '}
-                    <span className="text-gray-500">Reported:</span> {report.reportedUser?.fullName}
+                    <span className="text-gray-500">Reported:</span>{' '}
+                    {report.reportedUser?.fullName || (report as any).reportedUserId?.fullName || (report as any).reportedUserId?.email || 'User'}
                   </p>
                   {report.description && (
                     <p className="text-sm text-gray-500 mt-1 max-w-lg">{report.description}</p>

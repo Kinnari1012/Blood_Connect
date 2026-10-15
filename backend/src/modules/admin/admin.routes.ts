@@ -17,8 +17,8 @@ const paginationSchema = z.object({
   page: z.coerce.number().min(1).default(1),
   limit: z.coerce.number().min(1).max(100).default(20),
   search: z.string().optional(),
-  role: z.enum(['USER', 'ADMIN', 'SUPER_ADMIN']).optional(),
-  status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING']).optional(),
+  role: z.enum(['USER', 'DONOR', 'ADMIN', 'SUPER_ADMIN']).optional(),
+  status: z.enum(['ACTIVE', 'INACTIVE', 'SUSPENDED', 'PENDING', 'DISABLED']).optional(),
 });
 
 const updateUserStatusSchema = z.object({
@@ -53,7 +53,7 @@ const createUserSchema = z.object({
   status: z.enum(['ACTIVE', 'DISABLED']).default('ACTIVE'),
 });
 
-// List all users
+// List all users (with optional role filter)
 router.get('/users', requirePermission('MANAGE_DONORS'),
   async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -63,9 +63,10 @@ router.get('/users', requirePermission('MANAGE_DONORS'),
       const filter: any = { deletedAt: null };
       if (search) {
         filter.$or = [
-          { fullName: { $regex: search, $options: 'i' } },
+          { firstName: { $regex: search, $options: 'i' } },
+          { lastName: { $regex: search, $options: 'i' } },
           { email: { $regex: search, $options: 'i' } },
-          { mobile: { $regex: search, $options: 'i' } },
+          { phone: { $regex: search, $options: 'i' } },
         ];
       }
       if (role) filter.role = role;
@@ -84,15 +85,82 @@ router.get('/users', requirePermission('MANAGE_DONORS'),
       // Attach donor profiles
       const userIds = users.map((u: any) => u._id);
       const donorProfiles = await DonorProfile.find({ userId: { $in: userIds } })
-        .select('userId bloodGroup city availability')
+        .select('userId bloodGroup city availability totalDonations lastDonationDate nextEligibleDate')
         .lean();
       const profileMap = new Map(donorProfiles.map((p: any) => [p.userId.toString(), p]));
 
-      const enriched = users.map((u: any) => ({
-        ...u,
-        id: u._id.toString(),
-        donorProfile: profileMap.get(u._id.toString()) || null,
-      }));
+      const enriched = users.map((u: any) => {
+        const dp = profileMap.get(u._id.toString()) || null;
+        return {
+          ...u,
+          id: u._id.toString(),
+          donorProfile: dp,
+          bloodGroup: u.bloodGroup || dp?.bloodGroup || null,
+        };
+      });
+
+      res.json({ success: true, data: enriched, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } });
+    } catch (err) { next(err); }
+  }
+);
+
+// List dedicated donors
+router.get('/donors', requirePermission('MANAGE_DONORS'),
+  async (req: Request, res: Response, next: NextFunction) => {
+    try {
+      const { page, limit, search, status } = paginationSchema.parse(req.query);
+      const skip = (page - 1) * limit;
+
+      const donorUserIds = await DonorProfile.find().distinct('userId');
+      const donorFilter: any = {
+        deletedAt: null,
+        $or: [
+          { role: 'DONOR' },
+          { _id: { $in: donorUserIds } }
+        ]
+      };
+
+      if (search) {
+        donorFilter.$and = [
+          {
+            $or: [
+              { firstName: { $regex: search, $options: 'i' } },
+              { lastName: { $regex: search, $options: 'i' } },
+              { email: { $regex: search, $options: 'i' } },
+              { phone: { $regex: search, $options: 'i' } },
+            ]
+          }
+        ];
+      }
+      if (status) donorFilter.status = status;
+
+      const [donors, total] = await Promise.all([
+        User.find(donorFilter)
+          .select('-passwordHash')
+          .skip(skip)
+          .limit(limit)
+          .sort({ createdAt: -1 })
+          .lean(),
+        User.countDocuments(donorFilter),
+      ]);
+
+      const userIds = donors.map((u: any) => u._id);
+      const donorProfiles = await DonorProfile.find({ userId: { $in: userIds } }).lean();
+      const profileMap = new Map(donorProfiles.map((p: any) => [p.userId.toString(), p]));
+
+      const enriched = donors.map((u: any) => {
+        const dp: any = profileMap.get(u._id.toString()) || null;
+        return {
+          ...u,
+          id: u._id.toString(),
+          donorProfile: dp,
+          bloodGroup: dp?.bloodGroup || u.bloodGroup,
+          availability: dp?.availability ?? (u.availability === 'true' || u.availability === true),
+          totalDonations: dp?.totalDonations || 0,
+          lastDonationDate: dp?.lastDonationDate || u.lastDonationDate,
+          nextEligibleDate: dp?.nextEligibleDate || u.nextEligibleDate,
+        };
+      });
 
       res.json({ success: true, data: enriched, meta: { page, limit, total, totalPages: Math.ceil(total / limit) } });
     } catch (err) { next(err); }

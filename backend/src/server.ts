@@ -7,7 +7,7 @@ async function start() {
     await connectDB();
 
     app.listen(config.port, () => {
-      console.log(`🚀 BloodConnect API running on port ${config.port}`);
+      console.log(`🚀 LifeLink API running on port ${config.port}`);
       console.log(`   Environment: ${config.nodeEnv}`);
     });
   } catch (err) {

@@ -27,7 +27,7 @@ export function PrivacyPolicy() {
           <div className="space-y-4 text-sm text-gray-700">
             <section>
               <h2 className="font-bold text-gray-900 mb-2">1. Information We Collect</h2>
-              <p>BloodConnect collects information you provide when registering, including name, email, mobile number, blood group, and location. We use this to facilitate blood donor matching.</p>
+              <p>LifeLink collects information you provide when registering, including name, email, mobile number, blood group, and location. We use this to facilitate blood donor matching.</p>
             </section>
             <section>
               <h2 className="font-bold text-gray-900 mb-2">2. How We Use Your Information</h2>
@@ -43,7 +43,7 @@ export function PrivacyPolicy() {
             </section>
             <section>
               <h2 className="font-bold text-gray-900 mb-2">5. Contact</h2>
-              <p>For privacy concerns, contact us at privacy@BloodConnect.in</p>
+              <p>For privacy concerns, contact us at privacy@lifelink.in</p>
             </section>
           </div>
         </Card>
@@ -63,11 +63,11 @@ export function TermsAndConditions() {
           <div className="space-y-4 text-sm text-gray-700">
             <section>
               <h2 className="font-bold text-gray-900 mb-2">1. Acceptance of Terms</h2>
-              <p>By using BloodConnect, you agree to these terms. BloodConnect is a platform to connect blood donors with blood seekers and does not provide medical advice.</p>
+              <p>By using LifeLink, you agree to these terms. LifeLink is a platform to connect blood donors with blood seekers and does not provide medical advice.</p>
             </section>
             <section>
               <h2 className="font-bold text-gray-900 mb-2">2. Medical Disclaimer</h2>
-              <p>BloodConnect does not guarantee the medical eligibility of any donor. All eligibility calculations are estimates based on recorded donation dates. Always consult a qualified healthcare professional before donating blood.</p>
+              <p>LifeLink does not guarantee the medical eligibility of any donor. All eligibility calculations are estimates based on recorded donation dates. Always consult a qualified healthcare professional before donating blood.</p>
             </section>
             <section>
               <h2 className="font-bold text-gray-900 mb-2">3. User Responsibilities</h2>
@@ -75,7 +75,7 @@ export function TermsAndConditions() {
             </section>
             <section>
               <h2 className="font-bold text-gray-900 mb-2">4. Limitation of Liability</h2>
-              <p>BloodConnect facilitates connections between users but is not responsible for the outcome of donations or medical decisions made by users.</p>
+              <p>LifeLink facilitates connections between users but is not responsible for the outcome of donations or medical decisions made by users.</p>
             </section>
           </div>
         </Card>
@@ -111,7 +111,7 @@ export function HelpSupport() {
         </Card>
         <Card padding="lg">
           <h2 className="font-bold text-gray-900 mb-2">{t('help.contactUs')}</h2>
-          <p className="text-sm text-gray-500">Email: support@BloodConnect.in</p>
+          <p className="text-sm text-gray-500">Email: support@lifelink.in</p>
           <p className="text-sm text-gray-500">Response time: within 24 hours</p>
         </Card>
       </div>

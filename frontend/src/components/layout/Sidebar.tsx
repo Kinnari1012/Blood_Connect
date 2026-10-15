@@ -1,8 +1,8 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, Search, FileText, AlertCircle, Users, User,
-  ClipboardList, Bell, BarChart2, Settings, Home, LogOut, Heart, ShieldCheck, HelpCircle, Database
+  LayoutDashboard, Search, FileText, AlertCircle, Users,
+  ClipboardList, Bell, BarChart2, Settings, Home, LogOut, Heart, ShieldCheck, HelpCircle, Database, X
 } from 'lucide-react';
 import { useAuth } from '../../store/AuthContext';
 import { ROUTES } from '../../constants';
@@ -12,11 +12,18 @@ type NavItem = { path: string; icon: any; label: string; subItems?: {path: strin
 type NavGroup = { title?: string; items: NavItem[] };
 
 export function Sidebar() {
-  const [expandedMenus, setExpandedMenus] = React.useState<Record<string, boolean>>({});
+  const [expandedMenus, setExpandedMenus] = React.useState<Record<string, boolean>>(() => {
+    try {
+      const saved = sessionStorage.getItem('sidebar_expanded_menus');
+      return saved ? JSON.parse(saved) : {};
+    } catch {
+      return {};
+    }
+  });
   const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
-  const { logout, user } = useAuth();
+  const { logout, user, isDonor } = useAuth();
   
   const [isCollapsed, setIsCollapsed] = React.useState(() => {
     return localStorage.getItem('sidebar_collapsed') === 'true';
@@ -28,6 +35,16 @@ export function Sidebar() {
     const handleToggle = () => setIsMobileOpen(prev => !prev);
     window.addEventListener('toggle-mobile-sidebar', handleToggle);
     return () => window.removeEventListener('toggle-mobile-sidebar', handleToggle);
+  }, []);
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth >= 1024) {
+        setIsMobileOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   React.useEffect(() => {
@@ -68,12 +85,6 @@ export function Sidebar() {
             { path: '/super-admin/settings', icon: Settings, label: 'System Settings' },
             { path: '/super-admin/security', icon: ShieldCheck, label: 'Security' },
           ]
-        },
-        {
-          title: 'Account',
-          items: [
-            { path: '/profile', icon: User, label: 'My Profile' },
-          ]
         }
       ];
     } else if (user.role === 'ADMIN') {
@@ -84,7 +95,7 @@ export function Sidebar() {
           items: [
             { path: ROUTES.BLOOD_REQUESTS, icon: FileText, label: 'Blood Requests' },
             { path: '/requests/emergency', icon: AlertCircle, label: 'Emergency Requests' },
-            { path: ROUTES.DONORS, icon: Users, label: 'Donor Management' },
+            { path: ROUTES.DONORS, icon: Heart, label: 'Donor Management' },
             { path: '/admin/matching', icon: Heart, label: 'Donor Matching' },
             { path: ROUTES.BLOOD_DONATIONS, icon: ClipboardList, label: 'Donation Management' },
           ]
@@ -105,9 +116,28 @@ export function Sidebar() {
         {
           title: 'Account',
           items: [
-            { path: ROUTES.PROFILE, icon: User, label: 'My Profile' },
             { path: ROUTES.SETTINGS, icon: Settings, label: 'Settings' },
             { path: '/help', icon: HelpCircle, label: 'Help & Support' },
+          ]
+        }
+      ];
+    } else if (isDonor) {
+      return [
+        {
+          items: [
+            { path: ROUTES.DONOR_DASHBOARD, icon: LayoutDashboard, label: 'Dashboard' },
+            { 
+              path: ROUTES.BLOOD_REQUESTS, 
+              icon: FileText, 
+              label: 'Blood Requests',
+              subItems: [
+                { path: '/requests/incoming', label: 'Matching Requests' },
+                { path: '/requests/my', label: 'My Requests' }
+              ]
+            },
+            { path: '/donation-history', icon: ClipboardList, label: 'Donation History' },
+            { path: ROUTES.NOTIFICATIONS, icon: Bell, label: 'Notifications' },
+            { path: ROUTES.SETTINGS, icon: Settings, label: 'Settings' },
           ]
         }
       ];
@@ -116,7 +146,6 @@ export function Sidebar() {
         {
           items: [
             { path: ROUTES.USER_DASHBOARD, icon: LayoutDashboard, label: 'Dashboard' },
-            { path: ROUTES.PROFILE, icon: User, label: 'My Profile' },
             { path: ROUTES.FIND_BLOOD, icon: Search, label: 'Find Donors' },
             { 
               path: ROUTES.BLOOD_REQUESTS, 
@@ -124,11 +153,9 @@ export function Sidebar() {
               label: 'Blood Requests',
               subItems: [
                 { path: '/requests/create', label: 'Create Request' },
-                { path: '/requests/my', label: 'My Requests' },
-                { path: '/requests/incoming', label: 'Incoming Requests' }
+                { path: '/requests/my', label: 'My Requests' }
               ]
             },
-            { path: '/donation-history', icon: ClipboardList, label: 'Donation History' },
             { path: ROUTES.NOTIFICATIONS, icon: Bell, label: 'Notifications' },
             { path: ROUTES.SETTINGS, icon: Settings, label: 'Settings' },
           ]
@@ -148,24 +175,24 @@ export function Sidebar() {
     <>
       {isMobileOpen && (
         <div 
-          className="fixed inset-0 bg-gray-900/50 z-[900] lg:hidden transition-opacity"
+          className="fixed inset-0 bg-gray-900/60 backdrop-blur-xs z-[990] lg:hidden transition-opacity"
           onClick={() => setIsMobileOpen(false)}
         />
       )}
 
-      <aside className={`fixed lg:sticky top-0 lg:flex flex-col h-[100dvh] flex-shrink-0 bg-[#FFFFFF] border-r border-[#E0E0E0] z-30 transition-all duration-300 ease-in-out 
-        ${isCollapsed ? 'w-[80px]' : 'w-[250px]'}
+      <aside className={`fixed lg:sticky top-0 lg:flex flex-col h-[100dvh] flex-shrink-0 bg-[#FFFFFF] border-r border-[#E0E0E0] z-[1000] lg:z-30 shadow-2xl lg:shadow-none transition-all duration-300 ease-in-out 
+        ${isCollapsed ? 'w-[80px]' : 'w-[260px]'}
         ${isMobileOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* Brand */}
         <div className="h-[72px] flex items-center px-5 border-b border-[#E0E0E0] flex-shrink-0 justify-between">
-          <Link to={ROUTES.HOME} className={`flex items-center gap-3 focus:outline-none overflow-hidden ${isCollapsed ? 'justify-center w-full' : ''}`}>
+          <Link to={ROUTES.HOME} onClick={() => setIsMobileOpen(false)} className={`flex items-center gap-3 focus:outline-none overflow-hidden ${isCollapsed ? 'justify-center w-full' : ''}`}>
             <div className="flex-shrink-0 flex items-center justify-center w-8 h-8 rounded-full overflow-hidden bg-primary/10">
-              <img src="/logo.jpg" alt="BloodConnect" className="w-full h-full object-cover" />
+              <img src="/logo.jpg" alt="LifeLink" className="w-full h-full object-cover" />
             </div>
             {!isCollapsed && (
               <div className="min-w-0 flex-1 whitespace-nowrap animate-in fade-in duration-300">
-                <p className="font-bold text-sm leading-tight text-primary">BloodConnect</p>
+                <p className="font-bold text-sm leading-tight text-primary">LifeLink</p>
                 <p className="text-[10px] text-gray-500 leading-tight mt-0.5 truncate">{t('home.tagline')}</p>
               </div>
             )}
@@ -175,6 +202,14 @@ export function Sidebar() {
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
             </button>
           )}
+          {/* Mobile Close Button */}
+          <button
+            onClick={() => setIsMobileOpen(false)}
+            className="text-gray-400 hover:text-primary transition-colors focus:outline-none p-1.5 rounded-lg hover:bg-gray-100 lg:hidden"
+            title="Close Menu"
+          >
+            <X size={20} />
+          </button>
         </div>
 
         {isCollapsed && (
@@ -191,15 +226,25 @@ export function Sidebar() {
                 <p className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">{group.title}</p>
               )}
               {group.items.map(({ path, icon: Icon, label, subItems }) => {
-                const active = location.pathname === path || (path !== ROUTES.HOME && location.pathname.startsWith(path) && path !== ROUTES.USER_DASHBOARD && path !== ROUTES.ADMIN_DASHBOARD && path !== ROUTES.SUPER_ADMIN_DASHBOARD);
-                const isExpanded = expandedMenus[label];
+                const hasActiveChild = Boolean(subItems?.some(sub => location.pathname === sub.path || location.pathname.startsWith(sub.path)));
+                const active = location.pathname === path || hasActiveChild || (path !== ROUTES.HOME && location.pathname.startsWith(path) && path !== ROUTES.USER_DASHBOARD && path !== ROUTES.ADMIN_DASHBOARD && path !== ROUTES.SUPER_ADMIN_DASHBOARD);
+                const isExpanded = expandedMenus[label] !== undefined ? expandedMenus[label] : hasActiveChild;
+
+                const handleToggleSub = () => {
+                  setExpandedMenus(prev => {
+                    const current = prev[label] !== undefined ? prev[label] : hasActiveChild;
+                    const next = { ...prev, [label]: !current };
+                    try { sessionStorage.setItem('sidebar_expanded_menus', JSON.stringify(next)); } catch {}
+                    return next;
+                  });
+                };
                 
                 return (
                   <div key={label} className="relative group">
                     <div className="flex flex-col">
                       {subItems ? (
                         <button
-                          onClick={() => setExpandedMenus(prev => ({ ...prev, [label]: !prev[label] }))}
+                          onClick={handleToggleSub}
                           className={`flex items-center justify-between rounded-lg text-sm font-medium transition-colors focus:outline-none w-full ${
                             isCollapsed ? 'justify-center py-3' : 'gap-3 px-3 py-2.5'
                           } ${
@@ -222,6 +267,7 @@ export function Sidebar() {
                       ) : (
                         <Link
                           to={path}
+                          onClick={() => setIsMobileOpen(false)}
                           className={`flex items-center rounded-lg text-sm font-medium transition-colors focus:outline-none ${
                             isCollapsed ? 'justify-center py-3' : 'gap-3 px-3 py-2.5'
                           } ${
@@ -240,16 +286,20 @@ export function Sidebar() {
                       {!isCollapsed && subItems && isExpanded && (
                         <div className="mt-1 ml-9 flex flex-col gap-1 border-l-2 border-gray-100 pl-3">
                           {subItems.map((sub) => {
-                            const isSubActive = location.pathname === sub.path;
+                            const isSubActive = location.pathname === sub.path || location.pathname.startsWith(sub.path + '/');
                             return (
                               <Link
                                 key={sub.path}
                                 to={sub.path}
-                                className={`text-sm py-2 px-3 rounded-lg transition-colors ${
-                                  isSubActive ? 'bg-primary/10 text-primary font-bold' : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
+                                onClick={() => setIsMobileOpen(false)}
+                                className={`text-sm py-2 px-3 rounded-lg transition-all flex items-center justify-between ${
+                                  isSubActive 
+                                    ? 'bg-primary/10 text-primary font-bold shadow-xs' 
+                                    : 'text-gray-500 hover:text-gray-900 hover:bg-gray-50'
                                 }`}
                               >
-                                {sub.label}
+                                <span>{sub.label}</span>
+                                {isSubActive && <span className="w-1.5 h-1.5 rounded-full bg-primary flex-shrink-0" />}
                               </Link>
                             );
                           })}

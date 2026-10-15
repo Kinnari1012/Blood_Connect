@@ -3,20 +3,21 @@ import { PageLayout } from '../../components/layout/PageLayout';
 import { User, Droplet, MapPin, Camera, Loader2 } from 'lucide-react';
 import { Input, Select, Textarea } from '../../components/ui/Input';
 import { useAuth } from '../../store/AuthContext';
+import { authApi } from '../../services/api';
 import toast from 'react-hot-toast';
 
 export function ProfilePage() {
-  const { user, updateUser } = useAuth();
+  const { user, updateUser, isDonor } = useAuth();
   const [activeTab, setActiveTab] = useState('personal');
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const defaultProfile = {
     // Personal
-    fullName: user?.fullName || 'User Name',
+    fullName: user?.fullName || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'User Name',
     dob: '1990-01-01',
     gender: 'Other',
     email: user?.email || 'user@example.com',
-    mobile: user?.mobile || '+91 00000 00000',
+    mobile: user?.phone || user?.mobile || '',
     altMobile: '',
     emergencyContactName: '',
     emergencyContactNumber: '',
@@ -24,26 +25,26 @@ export function ProfilePage() {
     status: user?.status || 'ACTIVE',
     
     // Blood Info
-    bloodGroup: user?.donorProfile?.bloodGroup || 'O_POS',
+    bloodGroup: user?.bloodGroup || user?.donorProfile?.bloodGroup || 'O_POS',
     lastDonation: user?.donorProfile?.lastDonationDate || '',
     totalDonations: user?.donorProfile?.totalDonations || 0,
     eligibility: 'Eligible',
     nextEligible: user?.donorProfile?.nextEligibleDate || '',
     preferredType: 'Whole Blood',
-    availability: user?.donorProfile?.availability ? 'Available' : 'Temporarily Unavailable',
+    availability: (user?.availability === true || user?.availability === 'AVAILABLE' || user?.donorProfile?.availability) ? 'Available' : 'Temporarily Unavailable',
     availabilityNotes: '',
     
     // Address
-    address1: '',
+    address1: user?.address || '',
     address2: '',
     area: user?.donorProfile?.area || '',
-    city: user?.donorProfile?.city || '',
-    state: '',
-    country: 'India',
+    city: user?.city || user?.donorProfile?.city || '',
+    state: user?.state || '',
+    country: user?.country || 'India',
     pincode: '',
     radius: '10',
     locationPermission: true,
-    preferredLocation: ''
+    preferredLocation: user?.location || ''
   };
 
   const [profile, setProfile] = useState(defaultProfile);
@@ -51,15 +52,8 @@ export function ProfilePage() {
 
   useEffect(() => {
     if (user) {
-      const savedProfile = localStorage.getItem(`user_profile_${user.id}`);
-      if (savedProfile) {
-        const p = { ...defaultProfile, ...JSON.parse(savedProfile) };
-        setProfile(p);
-        setInitialProfile(p);
-      } else {
-        setProfile(defaultProfile);
-        setInitialProfile(defaultProfile);
-      }
+      setProfile(defaultProfile);
+      setInitialProfile(defaultProfile);
     }
   }, [user]);
 
@@ -73,35 +67,40 @@ export function ProfilePage() {
     setProfile(initialProfile);
   };
 
-  const handleSave = (e: React.FormEvent) => {
+  const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
     
     setIsSubmitting(true);
-    
-    setTimeout(() => {
-      localStorage.setItem(`user_profile_${user.id}`, JSON.stringify(profile));
-      setInitialProfile(profile);
-      
-      const updatedUser = {
-        ...user,
+    try {
+      const payload = {
         fullName: profile.fullName,
-        email: profile.email,
-        mobile: profile.mobile,
-        donorProfile: {
-          ...(user.donorProfile || {}),
-          bloodGroup: profile.bloodGroup as any,
-          city: profile.city,
-          area: profile.area,
-          availability: profile.availability === 'Available',
-          totalDonations: profile.totalDonations
-        }
+        phone: profile.mobile,
+        bloodGroup: profile.bloodGroup,
+        dob: profile.dob,
+        city: profile.city,
+        state: profile.state,
+        country: profile.country,
+        address: profile.address1 || profile.address2,
+        location: profile.preferredLocation || profile.city,
+        availability: profile.availability === 'Available',
       };
+
+      const res = await authApi.updateProfile(payload);
+      const serverUser = res.data?.data;
+
+      if (serverUser) {
+        updateUser(serverUser);
+      }
       
-      updateUser(updatedUser);
+      setInitialProfile(profile);
+      toast.success('Profile updated successfully!');
+    } catch (err: any) {
+      console.error('Failed to update profile:', err);
+      toast.error(err?.response?.data?.error?.message || 'Failed to update profile');
+    } finally {
       setIsSubmitting(false);
-      toast.success('Changes saved successfully!');
-    }, 800);
+    }
   };
 
   if (!user) return null;
@@ -122,10 +121,18 @@ export function ProfilePage() {
             <h3 className="font-bold text-gray-900 text-lg text-center">{profile.fullName}</h3>
             <p className="text-sm text-gray-500 text-center">{profile.email}</p>
             <p className="text-sm text-gray-500 text-center mb-2">{profile.mobile}</p>
-            <p className="text-xs font-bold text-gray-400 mb-4 bg-gray-100 px-3 py-1 rounded-full">Blood Group: {profile.bloodGroup.replace('_POS','+').replace('_NEG','-')}</p>
-            <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${profile.availability === 'Available' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-              {profile.availability}
-            </span>
+            {isDonor ? (
+              <>
+                <p className="text-xs font-bold text-gray-400 mb-2 bg-gray-100 px-3 py-1 rounded-full">Blood Group: {profile.bloodGroup.replace('_POS','+').replace('_NEG','-')}</p>
+                <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide ${profile.availability === 'Available' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
+                  {profile.availability}
+                </span>
+              </>
+            ) : (
+              <span className="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wide bg-blue-100 text-blue-700">
+                Blood Seeker / User
+              </span>
+            )}
           </div>
 
           <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">

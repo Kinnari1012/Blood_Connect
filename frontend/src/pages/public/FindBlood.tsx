@@ -2,13 +2,15 @@ import React, { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { SlidersHorizontal, MapPin, Clock, Droplets, ChevronRight } from 'lucide-react';
+import { SlidersHorizontal, MapPin, Clock, Droplets, ChevronRight, Map, LayoutGrid, Navigation, ExternalLink } from 'lucide-react';
 import { PageLayout } from '../../components/layout/PageLayout';
 import { LoadingSpinner } from '../../components/ui/Alert';
 import { Pagination } from '../../components/ui/Pagination';
 import { donorApi } from '../../services/api';
 import { BLOOD_GROUPS, BLOOD_GROUP_DISPLAY, ROUTES } from '../../constants';
 import { DonorProfile, BloodGroup } from '../../types';
+import { MapModal } from '../../components/common/MapModal';
+import { getGoogleMapsEmbedUrl, openGoogleMapsDirections, buildAddressQuery } from '../../utils/mapUtils';
 
 const BG_COLORS: Record<string, { bg: string; text: string; light: string }> = {
   A_POS:  { bg: '#FFCDD2', text: '#B71C1C', light: '#FFF5F5' },
@@ -22,7 +24,7 @@ const BG_COLORS: Record<string, { bg: string; text: string; light: string }> = {
 };
 
 // ─── Donor Card ───────────────────────────────────────────────────────────────
-function DonorCard({ donor }: { donor: DonorProfile }) {
+function DonorCard({ donor, onOpenMap }: { donor: DonorProfile; onOpenMap?: (d: DonorProfile) => void }) {
   const { t } = useTranslation();
   const isEligible = !donor.nextEligibleDate || new Date(donor.nextEligibleDate) <= new Date();
   const available = donor.availability && isEligible;
@@ -51,25 +53,41 @@ function DonorCard({ donor }: { donor: DonorProfile }) {
           <span
             className="flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full"
             style={{
-              background: available ? '#E8F5E9' : '#F5F5F5',
-              color: available ? '#2E7D32' : '#9E9E9E',
+              background: available ? '#E8F5E9' : '#FEE2E2',
+              color: available ? '#2E7D32' : '#DC2626',
             }}
           >
             <span
               className="w-1.5 h-1.5 rounded-full"
-              style={{ background: available ? '#2E7D32' : '#9E9E9E' }}
+              style={{ background: available ? '#2E7D32' : '#DC2626' }}
             />
-            {available ? t('donor.available') : t('donor.notAvailable')}
+            {available ? 'Available' : 'Temporarily Unavailable'}
           </span>
         </div>
 
         {/* Name & location */}
         <div className="mb-3">
-          <h3 className="font-bold text-gray-900 text-base truncate">{(donor as any).user?.fullName || 'Donor'}</h3>
+          <h3 className="font-bold text-gray-900 text-base truncate">{(donor as any).user?.fullName || 'Verified Donor'}</h3>
           {(donor.city || donor.area) && (
-            <p className="text-xs text-gray-500 flex items-center gap-1 mt-1">
-              <MapPin size={11} className="flex-shrink-0" />
-              <span className="truncate">{[donor.area, donor.city].filter(Boolean).join(', ')}</span>
+            <div className="flex items-center justify-between mt-1">
+              <p className="text-xs text-gray-500 flex items-center gap-1 truncate">
+                <MapPin size={11} className="flex-shrink-0 text-primary" />
+                <span className="truncate">{[donor.area, donor.city].filter(Boolean).join(', ')}</span>
+              </p>
+              <button
+                type="button"
+                onClick={() => onOpenMap ? onOpenMap(donor) : openGoogleMapsDirections(buildAddressQuery(donor.area, donor.city))}
+                className="text-[11px] font-bold text-primary hover:underline flex items-center gap-1 shrink-0 px-1.5 py-0.5 rounded bg-red-50 hover:bg-red-100 transition-colors ml-1"
+                title="View on Map & GPS"
+              >
+                <span>GPS</span>
+                <Navigation size={10} />
+              </button>
+            </div>
+          )}
+          {!available && (
+            <p className="text-[11px] text-amber-700 bg-amber-50 rounded px-2 py-0.5 mt-1.5 inline-block">
+              ⚠️ Temporarily unable or unwilling to donate
             </p>
           )}
         </div>
@@ -106,24 +124,30 @@ function DonorCard({ donor }: { donor: DonorProfile }) {
 }
 
 // ─── Blood Group Filter Chip ───────────────────────────────────────────────────
-function BGChip({ group, selected, onClick }: { group: BloodGroup; selected: boolean; onClick: () => void }) {
-  const c = BG_COLORS[group] || BG_COLORS.A_POS;
+function BGChip({ group, selected, onClick }: { group?: BloodGroup | ''; selected: boolean; onClick: () => void }) {
+  const isAll = !group;
+  const c = isAll
+    ? { bg: '#C62828', text: '#FFFFFF', border: '#C62828' }
+    : { ...(BG_COLORS[group] || BG_COLORS.A_POS), border: (BG_COLORS[group] || BG_COLORS.A_POS).bg };
+
   return (
     <button
+      type="button"
       onClick={onClick}
       className="font-bold text-xs rounded-xl transition-all focus:outline-none"
       style={{
-        padding: '6px 12px',
+        padding: '6px 14px',
         background: selected ? c.bg : 'white',
         color: selected ? c.text : '#616161',
-        border: selected ? `2px solid ${c.bg}` : '2px solid #E0E0E0',
+        border: selected ? `2px solid ${c.border}` : '2px solid #E0E0E0',
         transform: selected ? 'scale(1.05)' : 'scale(1)',
       }}
     >
-      {BLOOD_GROUP_DISPLAY[group]}
+      {isAll ? 'ALL' : BLOOD_GROUP_DISPLAY[group]}
     </button>
   );
 }
+
 
 export function FindBlood() {
   const { t } = useTranslation();
@@ -136,6 +160,8 @@ export function FindBlood() {
   });
   const [page, setPage] = useState(1);
   const [showFilters, setShowFilters] = useState(false);
+  const [viewMode, setViewMode] = useState<'cards' | 'map'>('cards');
+  const [selectedMapDonor, setSelectedMapDonor] = useState<DonorProfile | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ['donors', 'search', filters, page],
@@ -234,13 +260,75 @@ export function FindBlood() {
         </div>
 
         {/* ── Results header ───────────────────────────────────────────── */}
-        {meta && (
-          <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
+          {meta ? (
             <p className="text-sm text-gray-500">
               <span className="font-semibold text-gray-900">{meta.total}</span> donors found
               {filters.bloodGroup ? ` · ${BLOOD_GROUP_DISPLAY[filters.bloodGroup as BloodGroup]}` : ''}
               {filters.city ? ` · ${filters.city}` : ''}
             </p>
+          ) : <div />}
+
+          {/* View mode toggle */}
+          <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-gray-200 shadow-2xs">
+            <button
+              type="button"
+              onClick={() => setViewMode('cards')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === 'cards' ? 'bg-primary text-white shadow-xs' : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <LayoutGrid size={13} />
+              <span>Cards</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('map')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                viewMode === 'map' ? 'bg-primary text-white shadow-xs' : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              <Map size={13} />
+              <span>Map View</span>
+            </button>
+          </div>
+        </div>
+
+        {/* ── Interactive Map View when selected ───────────────────────── */}
+        {viewMode === 'map' && (
+          <div className="mb-6 space-y-4">
+            <div className="bg-white p-4 rounded-3xl border border-gray-200 shadow-sm overflow-hidden">
+              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                <div>
+                  <h3 className="font-bold text-gray-900 text-sm flex items-center gap-2">
+                    <MapPin size={16} className="text-primary" />
+                    <span>Donor Vicinity Coverage: {filters.city || filters.area || 'Ahmedabad & Gujarat'}</span>
+                  </h3>
+                  <p className="text-xs text-gray-400">Live GPS map for locating blood donors in this geographic area</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => openGoogleMapsDirections(buildAddressQuery(filters.area, filters.city || 'Ahmedabad, Gujarat'))}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-red-50 hover:bg-red-100 text-primary text-xs font-bold rounded-xl border border-red-200 transition-colors shadow-2xs"
+                >
+                  <Navigation size={12} />
+                  <span>Open in Google Maps</span>
+                </button>
+              </div>
+
+              <div className="h-80 sm:h-96 rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 relative shadow-inner">
+                <iframe
+                  title="Live Donors Map"
+                  width="100%"
+                  height="100%"
+                  style={{ border: 0 }}
+                  loading="lazy"
+                  allowFullScreen
+                  referrerPolicy="no-referrer-when-downgrade"
+                  src={getGoogleMapsEmbedUrl(buildAddressQuery(filters.area, filters.city || 'Ahmedabad, Gujarat'))}
+                />
+              </div>
+            </div>
           </div>
         )}
 
@@ -257,7 +345,11 @@ export function FindBlood() {
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mb-6">
               {donors.map((donor: DonorProfile) => (
-                <DonorCard key={(donor as any)._id || donor.id} donor={donor} />
+                <DonorCard 
+                  key={(donor as any)._id || donor.id} 
+                  donor={donor} 
+                  onOpenMap={(d) => setSelectedMapDonor(d)}
+                />
               ))}
             </div>
             {meta && meta.totalPages > 1 && (
@@ -271,6 +363,14 @@ export function FindBlood() {
           </>
         )}
       </div>
+
+      <MapModal
+        isOpen={!!selectedMapDonor}
+        onClose={() => setSelectedMapDonor(null)}
+        title="Donor Vicinity Location"
+        name={(selectedMapDonor as any)?.user?.fullName ? `${(selectedMapDonor as any).user.fullName} (${BLOOD_GROUP_DISPLAY[selectedMapDonor!.bloodGroup]})` : 'Verified Donor'}
+        address={buildAddressQuery(selectedMapDonor?.area, selectedMapDonor?.city)}
+      />
     </PageLayout>
   );
 }

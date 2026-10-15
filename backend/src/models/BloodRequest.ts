@@ -8,6 +8,10 @@ export interface IBloodRequest extends Document {
   unitsRequired: number;
   hospital: string;
   location: string;
+  street?: string;
+  city?: string;
+  state?: string;
+  pincode?: string;
   requiredDate: Date;
   requiredTime: string;
   urgency: 'Normal' | 'Urgent' | 'Critical';
@@ -27,6 +31,10 @@ const BloodRequestSchema = new Schema<IBloodRequest>({
   unitsRequired: { type: Number, required: true },
   hospital: { type: String, required: true },
   location: { type: String, required: true },
+  street: { type: String },
+  city: { type: String },
+  state: { type: String },
+  pincode: { type: String },
   requiredDate: { type: Date, required: true },
   requiredTime: { type: String, required: true },
   urgency: { type: String, enum: ['Normal', 'Urgent', 'Critical'], default: 'Normal' },

@@ -160,7 +160,7 @@ export function Onboarding() {
           <div className="flex flex-col items-center gap-3">
             <Logo size={52} />
             <div className="text-center">
-              <h1 className="text-2xl font-bold text-white">BloodConnect</h1>
+              <h1 className="text-2xl font-bold text-white">LifeLink</h1>
               <p className="text-red-200 text-xs mt-0.5">Connecting Donors. Saving Lives.</p>
             </div>
           </div>
@@ -216,7 +216,7 @@ export function Onboarding() {
       <div className="flex items-center justify-between px-5 pt-5 pb-2">
         <div className="flex items-center gap-2">
           <Logo size={28} />
-          <span className="font-bold text-gray-800 text-sm">BloodConnect</span>
+          <span className="font-bold text-gray-800 text-sm">LifeLink</span>
         </div>
         <button
           onClick={handleSkip}

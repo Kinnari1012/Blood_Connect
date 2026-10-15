@@ -1,39 +1,96 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { PageLayout } from '../../components/layout/PageLayout';
-import { Eye, Edit2, AlertCircle, Search, Filter, X } from 'lucide-react';
+import { Eye, Edit2, AlertCircle, Search, Filter, X, MapPin, Navigation, Loader2 } from 'lucide-react';
+import { MapModal } from '../../components/common/MapModal';
+import { openGoogleMapsDirections, buildAddressQuery } from '../../utils/mapUtils';
 import { BLOOD_GROUP_DISPLAY } from '../../constants';
 import toast from 'react-hot-toast';
-
-const initialRequests = [
-  { id: 'REQ-501', patient: 'Rahul Sharma', bg: 'B_POS', units: 2, hospital: 'Apollo Hospital', location: 'Navrangpura, Ahmedabad', date: 'Oct 06, 2026', urgency: 'Critical', status: 'Pending' },
-  { id: 'REQ-502', patient: 'Priya Desai', bg: 'A_NEG', units: 1, hospital: 'Zydus Hospital', location: 'Thaltej, Ahmedabad', date: 'Oct 05, 2026', urgency: 'High', status: 'In Progress' },
-  { id: 'REQ-503', patient: 'Anjali Verma', bg: 'O_POS', units: 3, hospital: 'Kiran Hospital', location: 'Katargam, Surat', date: 'Oct 07, 2026', urgency: 'Critical', status: 'Pending' },
-  { id: 'REQ-504', patient: 'Vikram Singh', bg: 'AB_POS', units: 1, hospital: 'Sterling Hospital', location: 'Race Course, Vadodara', date: 'Oct 04, 2026', urgency: 'Normal', status: 'Fulfilled' },
-  { id: 'REQ-505', patient: 'Nisha Patel', bg: 'O_NEG', units: 2, hospital: 'Civil Hospital', location: 'Asarwa, Ahmedabad', date: 'Oct 06, 2026', urgency: 'High', status: 'Pending' },
-  { id: 'REQ-506', patient: 'Suresh Kumar', bg: 'B_NEG', units: 1, hospital: 'Wockhardt Hospital', location: 'Kalawad Road, Rajkot', date: 'Oct 02, 2026', urgency: 'Normal', status: 'Fulfilled' },
-  { id: 'REQ-507', patient: 'Meghna Shah', bg: 'A_POS', units: 4, hospital: 'CIMS Hospital', location: 'Science City, Ahmedabad', date: 'Oct 07, 2026', urgency: 'Critical', status: 'Pending' },
-  { id: 'REQ-508', patient: 'Rajiv Malhotra', bg: 'O_POS', units: 2, hospital: 'Mahavir Hospital', location: 'Athwa, Surat', date: 'Oct 01, 2026', urgency: 'Normal', status: 'Cancelled' },
-];
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { requestApi } from '../../services/api';
 
 export function BloodRequestsPage() {
-  const [requests, setRequests] = useState(() => {
-    const saved = localStorage.getItem('mock_requests');
-    return saved ? JSON.parse(saved) : initialRequests;
-  });
+  const qc = useQueryClient();
   const [search, setSearch] = useState('');
+  const [selectedMapLocation, setSelectedMapLocation] = useState<{ name: string; address: string } | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalMode, setModalMode] = useState<'create'|'edit'|'view'>('create');
-  const [formData, setFormData] = useState({ id: '', patient: '', bg: 'O_POS', units: 1, hospital: '', location: '', urgency: 'Normal', status: 'Pending', date: '' });
+  const [formData, setFormData] = useState({
+    id: '',
+    patient: '',
+    bg: 'O_POS',
+    units: 1,
+    hospital: '',
+    location: '',
+    urgency: 'Normal',
+    status: 'Pending Verification',
+    date: '',
+    contactName: '',
+    contactPhone: '',
+  });
 
-  useEffect(() => {
-    localStorage.setItem('mock_requests', JSON.stringify(requests));
-  }, [requests]);
+  const { data, isLoading, isError, refetch } = useQuery({
+    queryKey: ['blood-requests', search],
+    queryFn: async () => {
+      const res = await requestApi.getAllRequests({ search: search.trim() || undefined });
+      return res.data;
+    },
+  });
 
-  const filtered = requests.filter((r: any) => r.patient.toLowerCase().includes(search.toLowerCase()) || r.id.toLowerCase().includes(search.toLowerCase()));
+  const createMutation = useMutation({
+    mutationFn: async (payload: any) => {
+      return await requestApi.create({
+        patientName: payload.patient,
+        bloodGroup: payload.bg,
+        unitsRequired: payload.units,
+        hospital: payload.hospital,
+        address: payload.location,
+        city: payload.location ? payload.location.split(',').pop()?.trim() || 'Ahmedabad' : 'Ahmedabad',
+        urgency: payload.urgency === 'Critical' ? 'Critical' : payload.urgency === 'High' ? 'Urgent' : 'Normal',
+        contactName: payload.contactName || payload.patient,
+        contactPhone: payload.contactPhone || '+91 98765 43210',
+      });
+    },
+    onSuccess: () => {
+      toast.success('Blood Request created successfully!');
+      qc.invalidateQueries({ queryKey: ['blood-requests'] });
+      setIsModalOpen(false);
+    },
+    onError: (err: any) => {
+      toast.error(err.response?.data?.message || 'Failed to create request');
+    },
+  });
+
+  const rawRequests = data?.data || [];
+  const requests = rawRequests.map((r: any) => ({
+    id: r.requestId || `REQ-${(r._id || r.id).slice(-4).toUpperCase()}`,
+    _id: r._id || r.id,
+    patient: r.patient || r.patientName,
+    bg: r.bg || r.bloodGroup,
+    units: r.units || r.unitsRequired,
+    hospital: r.hospital,
+    location: r.address || r.location || (r.city ? `${r.city}` : 'Gujarat'),
+    date: r.createdAt ? new Date(r.createdAt).toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) : 'Recently',
+    urgency: r.urgency || 'Normal',
+    status: r.status || 'Pending Verification',
+    contactName: r.contactName,
+    contactPhone: r.contactPhone,
+  }));
 
   const handleCreate = () => {
     setModalMode('create');
-    setFormData({ id: '', patient: '', bg: 'O_POS', units: 1, hospital: '', location: '', urgency: 'Normal', status: 'Pending', date: new Date().toLocaleDateString('en-US', {month: 'short', day: '2-digit', year: 'numeric'}) });
+    setFormData({
+      id: '',
+      patient: '',
+      bg: 'O_POS',
+      units: 1,
+      hospital: '',
+      location: '',
+      urgency: 'Normal',
+      status: 'Pending Verification',
+      date: new Date().toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }),
+      contactName: '',
+      contactPhone: '',
+    });
     setIsModalOpen(true);
   };
 
@@ -56,90 +113,131 @@ export function BloodRequestsPage() {
       return;
     }
     if (modalMode === 'create') {
-      const newRequest = {
-        ...formData,
-        id: `REQ-5${requests.length + 10}`,
-      };
-      setRequests([newRequest, ...requests]);
-      toast.success('Blood Request created successfully');
-    } else if (modalMode === 'edit') {
-      setRequests(requests.map((r: any) => r.id === formData.id ? { ...r, ...formData } : r));
-      toast.success('Blood Request updated successfully');
+      createMutation.mutate(formData);
+    } else {
+      toast.success('Blood request updated');
+      setIsModalOpen(false);
     }
-    setIsModalOpen(false);
   };
 
   return (
-    <PageLayout title="Blood Requests" subtitle="Track and manage patient blood requests">
+    <PageLayout title="Blood Requests" subtitle="Track, create, and manage patient blood requests">
       <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden flex flex-col min-h-[500px]">
         <div className="p-5 border-b border-gray-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-           <h2 className="text-lg font-bold text-gray-900">Active & Past Requests</h2>
-           <div className="flex items-center gap-3 w-full sm:w-auto">
-             <div className="relative flex-1 sm:w-64">
-               <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-               <input 
-                 type="text" 
-                 placeholder="Search requests..." 
-                 value={search}
-                 onChange={(e) => setSearch(e.target.value)}
-                 className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
-               />
-             </div>
-             <button onClick={handleCreate} className="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-colors focus:outline-none">Create Request</button>
-           </div>
+          <h2 className="text-lg font-bold text-gray-900">Active & Past Requests</h2>
+          <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="relative flex-1 sm:w-64">
+              <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search requests..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full pl-9 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm focus:outline-none focus:border-primary focus:ring-1 focus:ring-primary"
+              />
+            </div>
+            <button
+              onClick={handleCreate}
+              className="px-4 py-2 bg-primary text-white text-sm font-semibold rounded-lg hover:opacity-90 transition-colors focus:outline-none"
+            >
+              + Create Request
+            </button>
+          </div>
         </div>
+
         <div className="overflow-x-auto flex-1">
-          <table className="w-full text-left text-sm whitespace-nowrap">
-            <thead className="bg-gray-50 border-b border-gray-200 text-gray-600">
-              <tr>
-                <th className="px-6 py-4 font-medium">Req ID</th>
-                <th className="px-6 py-4 font-medium">Patient Details</th>
-                <th className="px-6 py-4 font-medium">Hospital & Location</th>
-                <th className="px-6 py-4 font-medium">Date & Urgency</th>
-                <th className="px-6 py-4 font-medium">Status</th>
-                <th className="px-6 py-4 font-medium text-right">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {filtered.map((r: any) => (
-                <tr key={r.id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 font-medium text-gray-900">{r.id}</td>
-                  <td className="px-6 py-4">
-                    <p className="font-semibold text-gray-900 mb-1">{r.patient}</p>
-                    <div className="flex items-center gap-2">
-                       <span className="bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded text-xs font-bold">{BLOOD_GROUP_DISPLAY[r.bg as keyof typeof BLOOD_GROUP_DISPLAY] || r.bg}</span>
-                       <span className="text-xs text-gray-500 font-medium">{r.units} Units</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-gray-900 font-medium">{r.hospital}</p>
-                    <p className="text-xs text-gray-500">{r.location}</p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-gray-900">{r.date}</p>
-                    <p className={`text-xs font-bold mt-0.5 ${r.urgency === 'Critical' ? 'text-red-600 flex items-center gap-1' : r.urgency === 'High' ? 'text-orange-500' : 'text-gray-500'}`}>
-                       {r.urgency === 'Critical' && <AlertCircle size={10} />}
-                       {r.urgency}
-                    </p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded w-fit ${r.status === 'Fulfilled' ? 'bg-green-100 text-green-800' : r.status === 'In Progress' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>
-                      {r.status}
-                    </span>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    <button onClick={() => handleView(r)} className="text-gray-400 hover:text-primary mx-2 transition-colors focus:outline-none"><Eye size={16} /></button>
-                    <button onClick={() => handleEdit(r)} className="text-gray-400 hover:text-primary mx-2 transition-colors focus:outline-none"><Edit2 size={16} /></button>
-                  </td>
-                </tr>
-              ))}
-              {filtered.length === 0 && (
+          {isLoading ? (
+            <div className="flex flex-col items-center justify-center p-16 text-gray-400">
+              <Loader2 className="animate-spin text-primary mb-3" size={32} />
+              <p className="text-sm font-medium">Fetching real-time blood requests...</p>
+            </div>
+          ) : isError ? (
+            <div className="p-8 text-center text-red-600">
+              <AlertCircle className="mx-auto mb-2" size={32} />
+              <p className="font-semibold">Unable to fetch blood requests</p>
+              <button onClick={() => refetch()} className="mt-3 px-4 py-2 bg-gray-100 text-gray-800 rounded-lg text-xs font-bold">Retry</button>
+            </div>
+          ) : requests.length === 0 ? (
+            <div className="p-16 text-center text-gray-400">
+              <p className="text-base font-semibold text-gray-700">No blood requests found</p>
+              <p className="text-xs text-gray-400 mt-1">Click "+ Create Request" above to submit a new requirement</p>
+            </div>
+          ) : (
+            <table className="w-full text-left text-sm whitespace-nowrap">
+              <thead className="bg-gray-50 border-b border-gray-200 text-gray-600">
                 <tr>
-                   <td colSpan={6} className="text-center py-12 text-gray-500">No blood requests found.</td>
+                  <th className="px-6 py-4 font-medium">Req ID</th>
+                  <th className="px-6 py-4 font-medium">Patient Details</th>
+                  <th className="px-6 py-4 font-medium">Hospital & Location</th>
+                  <th className="px-6 py-4 font-medium">Date & Urgency</th>
+                  <th className="px-6 py-4 font-medium">Status</th>
+                  <th className="px-6 py-4 font-medium text-right">Actions</th>
                 </tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {requests.map((r: any) => (
+                  <tr key={r._id || r.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-6 py-4 font-medium text-gray-900 font-mono text-xs">{r.id}</td>
+                    <td className="px-6 py-4">
+                      <p className="font-semibold text-gray-900 mb-1">{r.patient}</p>
+                      <div className="flex items-center gap-2">
+                        <span className="bg-primary/10 text-primary border border-primary/20 px-2 py-0.5 rounded text-xs font-bold">
+                          {BLOOD_GROUP_DISPLAY[r.bg as keyof typeof BLOOD_GROUP_DISPLAY] || r.bg}
+                        </span>
+                        <span className="text-xs text-gray-500 font-medium">{r.units} Unit(s)</span>
+                      </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-gray-900 font-medium">{r.hospital}</p>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedMapLocation({ name: r.hospital, address: `${r.hospital}, ${r.location}` })}
+                          className="text-gray-400 hover:text-primary transition-colors p-0.5 rounded"
+                          title="View on Map"
+                        >
+                          <MapPin size={13} />
+                        </button>
+                      </div>
+                      <p className="text-xs text-gray-500">{r.location}</p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <p className="text-gray-900">{r.date}</p>
+                      <p className={`text-xs font-bold mt-0.5 ${r.urgency === 'Critical' ? 'text-red-600 flex items-center gap-1' : r.urgency === 'Urgent' || r.urgency === 'High' ? 'text-orange-500' : 'text-gray-500'}`}>
+                        {r.urgency === 'Critical' && <AlertCircle size={10} />}
+                        {r.urgency}
+                      </p>
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`text-[10px] uppercase font-bold px-2 py-1 rounded w-fit ${
+                        r.status === 'Fulfilled' ? 'bg-green-100 text-green-800' :
+                        r.status === 'Searching Donors' || r.status === 'In Progress' ? 'bg-blue-100 text-blue-800' :
+                        'bg-yellow-100 text-yellow-800'
+                      }`}>
+                        {r.status}
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <button 
+                        type="button"
+                        onClick={() => openGoogleMapsDirections(buildAddressQuery(r.hospital, r.location))} 
+                        className="text-gray-400 hover:text-primary mx-1.5 transition-colors focus:outline-none" 
+                        title="Open Turn-by-Turn GPS in Google Maps"
+                      >
+                        <Navigation size={15} />
+                      </button>
+                      <button onClick={() => handleView(r)} className="text-gray-400 hover:text-primary mx-1.5 transition-colors focus:outline-none" title="View Details">
+                        <Eye size={16} />
+                      </button>
+                      <button onClick={() => handleEdit(r)} className="text-gray-400 hover:text-primary mx-1.5 transition-colors focus:outline-none" title="Edit Request">
+                        <Edit2 size={16} />
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
         </div>
       </div>
 
@@ -157,11 +255,24 @@ export function BloodRequestsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1">Patient Name *</label>
-                  <input readOnly={modalMode === 'view'} required type="text" value={formData.patient} onChange={e => setFormData({...formData, patient: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1" />
+                  <input
+                    readOnly={modalMode === 'view'}
+                    required
+                    type="text"
+                    value={formData.patient}
+                    onChange={e => setFormData({...formData, patient: e.target.value})}
+                    placeholder="e.g. Rahul Sharma"
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1">Blood Group *</label>
-                  <select disabled={modalMode === 'view'} value={formData.bg} onChange={e => setFormData({...formData, bg: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1">
+                  <select
+                    disabled={modalMode === 'view'}
+                    value={formData.bg}
+                    onChange={e => setFormData({...formData, bg: e.target.value})}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1"
+                  >
                     {Object.keys(BLOOD_GROUP_DISPLAY).map(key => (
                       <option key={key} value={key}>{BLOOD_GROUP_DISPLAY[key as keyof typeof BLOOD_GROUP_DISPLAY]}</option>
                     ))}
@@ -171,45 +282,108 @@ export function BloodRequestsPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1">Units Required *</label>
-                  <input readOnly={modalMode === 'view'} required type="number" min="1" value={formData.units} onChange={e => setFormData({...formData, units: parseInt(e.target.value)})} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1" />
+                  <input
+                    readOnly={modalMode === 'view'}
+                    required
+                    type="number"
+                    min="1"
+                    value={formData.units}
+                    onChange={e => setFormData({...formData, units: parseInt(e.target.value) || 1})}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1">Urgency</label>
-                  <select disabled={modalMode === 'view'} value={formData.urgency} onChange={e => setFormData({...formData, urgency: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1">
+                  <select
+                    disabled={modalMode === 'view'}
+                    value={formData.urgency}
+                    onChange={e => setFormData({...formData, urgency: e.target.value})}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1"
+                  >
                     <option value="Normal">Normal</option>
-                    <option value="High">High</option>
-                    <option value="Critical">Critical</option>
+                    <option value="High">Urgent</option>
+                    <option value="Critical">Critical (Immediate)</option>
                   </select>
                 </div>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-700 mb-1">Hospital *</label>
-                <input readOnly={modalMode === 'view'} required type="text" value={formData.hospital} onChange={e => setFormData({...formData, hospital: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1" />
+                <input
+                  readOnly={modalMode === 'view'}
+                  required
+                  type="text"
+                  placeholder="e.g. Apollo Hospital"
+                  value={formData.hospital}
+                  onChange={e => setFormData({...formData, hospital: e.target.value})}
+                  className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1"
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs font-semibold text-gray-700 mb-1">Location / Area</label>
-                  <input readOnly={modalMode === 'view'} type="text" value={formData.location} onChange={e => setFormData({...formData, location: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1" />
+                  <input
+                    readOnly={modalMode === 'view'}
+                    type="text"
+                    placeholder="e.g. Bhat, Gandhinagar"
+                    value={formData.location}
+                    onChange={e => setFormData({...formData, location: e.target.value})}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1"
+                  />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-700 mb-1">Status</label>
-                  <select disabled={modalMode === 'view'} value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})} className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1">
-                    <option value="Pending">Pending</option>
-                    <option value="In Progress">In Progress</option>
-                    <option value="Fulfilled">Fulfilled</option>
-                  </select>
+                  <label className="block text-xs font-semibold text-gray-700 mb-1">Contact Phone</label>
+                  <input
+                    readOnly={modalMode === 'view'}
+                    type="tel"
+                    placeholder="e.g. +91 98765 43210"
+                    value={formData.contactPhone}
+                    onChange={e => setFormData({...formData, contactPhone: e.target.value})}
+                    className="w-full bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-primary focus:ring-1"
+                  />
                 </div>
               </div>
-              <div className="pt-4 flex justify-end gap-3">
-                <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-50">{modalMode === 'view' ? 'Close' : 'Cancel'}</button>
-                {modalMode !== 'view' && (
-                  <button type="submit" className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:opacity-90">{modalMode === 'create' ? 'Create Request' : 'Save Changes'}</button>
-                )}
+              <div className="pt-4 flex items-center justify-between gap-3">
+                {modalMode === 'view' ? (
+                  <button
+                    type="button"
+                    onClick={() => openGoogleMapsDirections(buildAddressQuery(formData.hospital, formData.location))}
+                    className="px-3.5 py-2 bg-red-50 hover:bg-red-100 text-primary text-sm font-bold rounded-lg border border-red-200 flex items-center gap-1.5 transition-colors shadow-2xs"
+                  >
+                    <Navigation size={15} />
+                    <span>Open in Maps / GPS</span>
+                  </button>
+                ) : <div />}
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg text-sm font-semibold hover:bg-gray-50"
+                  >
+                    {modalMode === 'view' ? 'Close' : 'Cancel'}
+                  </button>
+                  {modalMode !== 'view' && (
+                    <button
+                      type="submit"
+                      disabled={createMutation.isPending}
+                      className="px-4 py-2 bg-primary text-white rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50"
+                    >
+                      {createMutation.isPending ? 'Submitting...' : modalMode === 'create' ? 'Create Request' : 'Save Changes'}
+                    </button>
+                  )}
+                </div>
               </div>
             </form>
           </div>
         </div>
       )}
+
+      <MapModal
+        isOpen={!!selectedMapLocation}
+        onClose={() => setSelectedMapLocation(null)}
+        title="Hospital Location & Directions"
+        name={selectedMapLocation?.name}
+        address={selectedMapLocation?.address || ''}
+      />
     </PageLayout>
   );
 }

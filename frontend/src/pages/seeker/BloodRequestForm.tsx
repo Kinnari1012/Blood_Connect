@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
-import { MapPin, Calendar, Clock, AlertTriangle, Loader2 } from 'lucide-react';
+import { MapPin, Calendar, Clock, AlertTriangle, Loader2, Navigation, ExternalLink } from 'lucide-react';
 import { PageLayout } from '../../components/layout/PageLayout';
 import { Input, Select, Textarea } from '../../components/ui/Input';
 import { Alert } from '../../components/ui/Alert';
 import { useAuth } from '../../store/AuthContext';
+import { MapModal } from '../../components/common/MapModal';
+import { buildAddressQuery } from '../../utils/mapUtils';
 import toast from 'react-hot-toast';
 
 export function BloodRequestForm({ isEmergency = false }: { isEmergency?: boolean }) {
@@ -15,6 +17,7 @@ export function BloodRequestForm({ isEmergency = false }: { isEmergency?: boolea
   const [searchParams] = useSearchParams();
   const defaultBloodGroup = searchParams.get('bloodGroup') as any || '';
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [mapPreview, setMapPreview] = useState<{ name: string; address: string } | null>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -99,6 +102,31 @@ export function BloodRequestForm({ isEmergency = false }: { isEmergency?: boolea
                   {value:'5',label:'5 km'},{value:'10',label:'10 km'},{value:'25',label:'25 km'},{value:'50',label:'50 km'}
                 ]} />
               </div>
+              <div className="mt-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    const form = (e.target as HTMLElement).closest('form');
+                    if (form) {
+                      const hName = (form.elements.namedItem('hospitalName') as HTMLInputElement)?.value;
+                      const hAddr = (form.elements.namedItem('hospitalAddress') as HTMLInputElement)?.value;
+                      const hCity = (form.elements.namedItem('city') as HTMLInputElement)?.value;
+                      if (!hName && !hAddr && !hCity) {
+                        toast.error('Please enter hospital name or address first to preview on map');
+                        return;
+                      }
+                      setMapPreview({
+                        name: hName || 'Hospital',
+                        address: buildAddressQuery(hName, hAddr, hCity)
+                      });
+                    }
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 hover:bg-gray-100 text-gray-700 text-xs font-semibold rounded-lg border border-gray-200 transition-colors"
+                >
+                  <MapPin size={13} className="text-primary" />
+                  <span>Preview Hospital on Map</span>
+                </button>
+              </div>
             </fieldset>
             
             <fieldset>
@@ -124,6 +152,14 @@ export function BloodRequestForm({ isEmergency = false }: { isEmergency?: boolea
           </form>
         </div>
       </div>
+
+      <MapModal
+        isOpen={!!mapPreview}
+        onClose={() => setMapPreview(null)}
+        title="Hospital Location Verification"
+        name={mapPreview?.name}
+        address={mapPreview?.address || ''}
+      />
     </PageLayout>
   );
 }

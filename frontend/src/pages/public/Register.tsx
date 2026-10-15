@@ -74,7 +74,7 @@ export function Register() {
         style={{ background: 'linear-gradient(150deg, #C62828 0%, #8E0000 100%)' }}
       >
         <h1 className="text-xl font-bold text-white">Create Account</h1>
-        <p className="text-red-200 text-sm">Join the BloodConnect community</p>
+        <p className="text-red-200 text-sm">Join the LifeLink community</p>
       </div>
 
       <div className="flex-1 px-4 -mt-4 pb-10 overflow-y-auto">
